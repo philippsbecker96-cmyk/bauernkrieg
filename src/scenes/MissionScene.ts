@@ -6,6 +6,7 @@ import { TEST_MAP, type MapConfig } from '../game/data/maps';
 import { MINI_MISSION, type VillageDefinition } from '../game/data/missions';
 import { MOVEMENT, SELECTION } from '../game/data/movement';
 import { getArmor } from '../game/data/armor';
+import { SUPPLY } from '../game/data/balance';
 import { STRESS_SCENARIO, TEST_RALLY_POINT, TEST_SCENARIO } from '../game/data/testScenario';
 import { getUnitType } from '../game/data/units';
 import { getWeapon, type WeaponDefinition } from '../game/data/weapons';
@@ -29,15 +30,30 @@ import {
 } from '../game/systems/combat';
 import { orderGroupMove } from '../game/systems/formation';
 import {
+  armySize,
   buildMissionTiles,
+  buyFoodAtVillage,
+  checkFoodPurchase,
   checkRecruit,
+  claimVictoryReward,
   createMissionState,
   postPresence,
+  recruitableNow,
   recruitAtVillage,
   siteCenter,
   stepMission,
+  volunteersLeft,
   type MissionState,
 } from '../game/systems/mission';
+import {
+  dailyConsumption,
+  secondsUntilNextDay,
+  stepSupply,
+  supplyDays,
+  supplyLevel,
+  type DayReport,
+  type SupplyLevel,
+} from '../game/systems/supply';
 import { stepMovement, type MovementConfig } from '../game/systems/movement';
 import {
   buildWalkGrid,
@@ -55,6 +71,7 @@ import {
   type MissionStatusEvent,
   type NoticeEvent,
   type SelectionChangedEvent,
+  type SupplyStatusEvent,
   type TileHoverEvent,
   type UnitInfoEvent,
 } from './sceneKeys';
@@ -114,9 +131,11 @@ export class MissionScene extends Phaser.Scene {
   private tiles: TileType[][] = [];
   private mapConfig: MapConfig = MINI_MISSION.map;
   /** Mission rules state; only used in the mini mission. */
-  private mission: MissionState = createMissionState();
+  private mission: MissionState = createMissionState(MINI_MISSION);
   private siteGraphics?: Phaser.GameObjects.Graphics;
   private lastMissionText: string | null = null;
+  private lastSupplyText: string | null = null;
+  private lastSupplyLevel: SupplyLevel = 'ok';
   private walkGrid: WalkGrid = [];
   private panKeys?: PanKeys;
   private hoverMarker?: Phaser.GameObjects.Graphics;
@@ -157,7 +176,9 @@ export class MissionScene extends Phaser.Scene {
     this.scenario = data?.scenario ?? 'mission';
     this.lastUnitInfo = null;
     this.lastMissionText = null;
-    this.mission = createMissionState();
+    this.lastSupplyText = null;
+    this.lastSupplyLevel = 'ok';
+    this.mission = createMissionState(MINI_MISSION);
     this.units = [];
     this.sprites = new Map();
     this.selected = new Set();
@@ -220,6 +241,7 @@ export class MissionScene extends Phaser.Scene {
       this.emitSelection();
       this.emitBattleStatus();
       this.emitMissionStatus();
+      this.emitSupplyStatus();
       if (isMission) this.notify(MINI_MISSION.briefing);
     });
   }
@@ -252,6 +274,7 @@ export class MissionScene extends Phaser.Scene {
       keyboard.on('keydown-H', () => this.issueHoldOrder());
       keyboard.on('keydown-R', () => this.issueRetreatOrder());
       keyboard.on('keydown-P', () => this.setRallyPointAtPointer());
+      keyboard.on('keydown-F', () => this.tryBuyFood());
       keyboard.on('keydown-N', () => this.scene.restart({ scenario: this.scenario }));
       keyboard.on('keydown-B', () =>
         this.scene.restart({ scenario: this.scenario === 'stress' ? 'mission' : 'stress' }),
@@ -337,7 +360,7 @@ export class MissionScene extends Phaser.Scene {
       // A click on a village (not on a unit) asks for volunteers and keeps the selection.
       const village = unit ? undefined : this.villageAt(world.x, world.y);
       if (village) {
-        this.tryRecruit(village);
+        this.tryRecruit(village, additive);
         return;
       }
       picked = unit ? [unit] : [];
@@ -355,10 +378,21 @@ export class MissionScene extends Phaser.Scene {
     });
   }
 
-  private tryRecruit(village: VillageDefinition): void {
+  /** Click on a village: as many volunteers join as the food sustains; with Shift only one. */
+  private tryRecruit(village: VillageDefinition, onlyOne: boolean): void {
     const size = this.mapConfig.tileSize;
-    const check = checkRecruit(this.mission, village, this.units, size);
-    if (check === 'alreadyRecruited') {
+    const check = checkRecruit(this.mission, village, this.units, size, SUPPLY);
+    if (check === 'notEnoughFood') {
+      const needed = (armySize(this.units) + 1) * SUPPLY.foodPerUnitPerDay * SUPPLY.lowSupplyDays;
+      this.notify(
+        this.mission.supply.shortageDays > 0
+          ? `${village.name}: Der Haufen hungert – niemand schließt sich an. Erst Nahrung beschaffen.`
+          : `${village.name}: Zu wenig Nahrung für auch nur eine weitere Person ` +
+              `(nötig: ${needed} für ${SUPPLY.lowSupplyDays} Tage). Erst Nahrung kaufen (F).`,
+      );
+      return;
+    }
+    if (check === 'noVolunteersLeft') {
       this.notify(`${village.name}: Alle Freiwilligen haben sich bereits angeschlossen.`);
       return;
     }
@@ -366,14 +400,57 @@ export class MissionScene extends Phaser.Scene {
       this.notify(`${village.name}: Schicke zuerst eigene Leute ins Dorf (blauer Kreis).`);
       return;
     }
-    const recruits = recruitAtVillage(this.mission, village, this.units, this.walkGrid, size, MOVEMENT.formationSpacing);
+    const recruits = recruitAtVillage(
+      this.mission,
+      village,
+      this.units,
+      this.walkGrid,
+      size,
+      MOVEMENT.formationSpacing,
+      SUPPLY,
+      onlyOne ? 1 : Infinity,
+    );
     if (recruits.length === 0) return;
     this.units.push(...recruits);
     for (const unit of recruits) this.addSprite(unit);
     const name = getUnitType(village.recruits.typeId).name;
-    this.notify(`${village.name}: ${recruits.length} × ${name} schließen sich dem Haufen an!`);
+    const left = volunteersLeft(this.mission, village);
+    const rest =
+      left === 0
+        ? ''
+        : onlyOne
+          ? ` Noch ${left} bereit.`
+          : ` Noch ${left} bereit – die Nahrung reicht nicht für mehr.`;
+    this.notify(`${village.name}: ${recruits.length} × ${name} schließen sich dem Haufen an!${rest}`);
     this.emitSelection();
     this.emitBattleStatus();
+  }
+
+  /** Key F: buys one lot of food at a village where own units stand (mini mission only). */
+  private tryBuyFood(): void {
+    if (this.scenario !== 'mission' || this.mission.outcome !== 'running') return;
+    const size = this.mapConfig.tileSize;
+    const markets = MINI_MISSION.villages.filter((v) => v.foodMarket);
+    const checks = markets.map((village) => ({ village, check: checkFoodPurchase(this.mission, village, this.units, size) }));
+    const ready = checks.find((c) => c.check === 'ok');
+    if (ready) {
+      const amount = buyFoodAtVillage(this.mission, ready.village, this.units, size);
+      const left = this.mission.foodStock.get(ready.village.id) ?? 0;
+      this.notify(
+        `${ready.village.name}: ${amount} Nahrung für ${ready.village.foodMarket!.price} Gold gekauft ` +
+          `(noch ${left} zu kaufen).`,
+      );
+      this.emitSupplyStatus();
+      return;
+    }
+    const present = checks.find((c) => c.check !== 'noUnitNearby');
+    if (!present) {
+      this.notify('Nahrung kaufen: Schicke zuerst eigene Leute in ein Dorf (blauer Kreis).');
+    } else if (present.check === 'soldOut') {
+      this.notify(`${present.village.name}: Das Dorf hat keine Nahrung mehr zu verkaufen.`);
+    } else if (present.check === 'notEnoughGold') {
+      this.notify(`${present.village.name}: Zu wenig Gold (${present.village.foodMarket!.price} nötig).`);
+    }
   }
 
   private issueMoveOrder(worldX: number, worldY: number): void {
@@ -483,7 +560,10 @@ export class MissionScene extends Phaser.Scene {
         this.outcome === 'defeat'
           ? 'Alle eigenen Einheiten sind gefallen.'
           : isMission
-            ? `Der ${MINI_MISSION.post.name} ist eingenommen.`
+            ? `Der ${MINI_MISSION.post.name} ist eingenommen.` +
+              (this.mission.rewardClaimed
+                ? `\nBelohnung: +${MINI_MISSION.reward.gold} Gold, +${MINI_MISSION.reward.food} Nahrung`
+                : '')
             : 'Alle Gegner sind gefallen.',
     };
     this.game.events.emit(GameEvents.BattleStatus, event);
@@ -509,11 +589,23 @@ export class MissionScene extends Phaser.Scene {
       const lines = [`Ziel: ${MINI_MISSION.briefing}`, `${post.name}: ${percent} % eingenommen (${state})`];
       for (const village of MINI_MISSION.villages) {
         const name = getUnitType(village.recruits.typeId).name;
+        const left = volunteersLeft(this.mission, village);
+        const feedable = recruitableNow(this.mission, village, this.units, SUPPLY);
         lines.push(
-          this.mission.recruitedVillages.has(village.id)
-            ? `${village.name}: Freiwillige haben sich angeschlossen`
-            : `${village.name}: ${village.recruits.count} × ${name} bereit – eigene Leute hinschicken, Dorf anklicken`,
+          left === 0
+            ? `${village.name}: Alle Freiwilligen haben sich angeschlossen`
+            : `${village.name}: ${left} × ${name} bereit, Nahrung reicht für ${feedable} – ` +
+                'Dorf anklicken (Umschalt+Klick: nur einer)',
         );
+        const market = village.foodMarket;
+        if (market) {
+          const stock = this.mission.foodStock.get(village.id) ?? 0;
+          lines.push(
+            stock > 0
+              ? `  Nahrung kaufen (F, eigene Leute im Dorf): ${market.amount} für ${market.price} Gold, noch ${stock} vorrätig`
+              : '  Nahrung: ausverkauft',
+          );
+        }
       }
       text = lines.join('\n');
     }
@@ -521,6 +613,55 @@ export class MissionScene extends Phaser.Scene {
     this.lastMissionText = text;
     const event: MissionStatusEvent = { text };
     this.game.events.emit(GameEvents.MissionStatus, event);
+  }
+
+  /** Gold, food, consumption and supply days of the mini mission (`null` hides the panel in other scenarios). */
+  private emitSupplyStatus(): void {
+    let text: string | null = null;
+    let level: SupplyLevel = 'ok';
+    if (this.scenario === 'mission') {
+      const supply = this.mission.supply;
+      const army = armySize(this.units);
+      level = supplyLevel(supply, army, SUPPLY);
+      const days = supplyDays(supply.food, army, SUPPLY);
+      const daysText = Number.isFinite(days) ? days.toFixed(1).replace('.', ',') : '–';
+      const clock =
+        this.mission.outcome === 'running'
+          ? `nächster Nahrungsabzug in ${Math.ceil(secondsUntilNextDay(supply, SUPPLY))} s`
+          : 'Mission beendet';
+      const lines = [
+        `Tag ${supply.day} · ${clock}`,
+        `Gold: ${supply.gold} · Nahrung: ${supply.food}`,
+        `Verbrauch: ${dailyConsumption(army, SUPPLY)} Nahrung/Tag (${army} × ${SUPPLY.foodPerUnitPerDay})`,
+        `Nahrung reicht für ca. ${daysText} Tage`,
+      ];
+      if (level === 'low') {
+        lines.push(`Warnung: Vorräte knapp (unter ${SUPPLY.lowSupplyDays} Tagen) – Nahrung kaufen!`);
+      } else if (level === 'shortage') {
+        lines.push(`Warnung: Der Haufen hungert seit ${supply.shortageDays} Tag(en)!`, 'Keine neuen Freiwilligen, bis wieder Nahrung da ist.');
+      }
+      text = lines.join('\n');
+    }
+    if (this.scenario === 'mission' && this.mission.outcome === 'running' && level !== this.lastSupplyLevel) {
+      if (level === 'low') this.notify('Die Vorräte werden knapp – neue Freiwillige schließen sich erst mit mehr Nahrung an.');
+      if (level === 'shortage') this.notify('Hunger! Die Nahrung reicht nicht mehr für den ganzen Haufen.');
+    }
+    this.lastSupplyLevel = level;
+    if (text === this.lastSupplyText) return;
+    this.lastSupplyText = text;
+    const event: SupplyStatusEvent = { text, level };
+    this.game.events.emit(GameEvents.SupplyStatus, event);
+  }
+
+  /** Short notice at the end of each game day about what the army has eaten. */
+  private reportDays(reports: readonly DayReport[]): void {
+    const last = reports[reports.length - 1];
+    if (!last) return;
+    this.notify(
+      last.eaten < last.needed
+        ? `Tag ${last.day} vorbei: Nur ${last.eaten} von ${last.needed} Nahrung vorhanden – der Haufen hungert!`
+        : `Tag ${last.day} vorbei: ${last.eaten} Nahrung verbraucht, ${last.food} übrig.`,
+    );
   }
 
   update(_time: number, delta: number): void {
@@ -536,12 +677,17 @@ export class MissionScene extends Phaser.Scene {
   private updateUnits(dt: number): void {
     let remaining = Math.min(dt, 0.25);
     const events: CombatEvent[] = [];
+    const days: DayReport[] = [];
     while (remaining > 1e-6) {
       const step = Math.min(remaining, MAX_STEP);
       // After victory or defeat the fight is over; units only finish their walk.
       if (this.outcome === 'running') events.push(...stepCombat(this.units, this.walkGrid, step, this.combatConfig));
       stepMovement(this.units, this.walkGrid, step, this.movementConfig);
       if (this.scenario === 'mission') {
+        // The day clock (and with it the food consumption) only runs while the mission does.
+        if (this.mission.outcome === 'running') {
+          days.push(...stepSupply(this.mission.supply, armySize(this.units), step, SUPPLY));
+        }
         stepMission(this.mission, MINI_MISSION.post, this.units, step, this.mapConfig.tileSize);
       }
       remaining -= step;
@@ -550,9 +696,12 @@ export class MissionScene extends Phaser.Scene {
     if (this.scenario === 'mission') {
       if (this.mission.outcome !== this.outcome) {
         this.outcome = this.mission.outcome;
+        claimVictoryReward(this.mission, MINI_MISSION);
         this.emitBattleStatus();
       }
+      this.reportDays(days);
       this.emitMissionStatus();
+      this.emitSupplyStatus();
     }
     for (const unit of this.units) {
       this.sprites.get(unit.id)?.setPosition(unit.x, unit.y);
@@ -650,8 +799,10 @@ export class MissionScene extends Phaser.Scene {
 
     for (const village of MINI_MISSION.villages) {
       const c = siteCenter(village, size);
-      const recruited = this.mission.recruitedVillages.has(village.id);
-      if (!recruited) {
+      // The circle marks where own units must stand to recruit or buy food.
+      const active =
+        volunteersLeft(this.mission, village) > 0 || (this.mission.foodStock.get(village.id) ?? 0) > 0;
+      if (active) {
         g.lineStyle(2, 0x6fb7e8, 0.6);
         g.strokeCircle(c.x, c.y, village.recruitRadius);
       }

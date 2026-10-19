@@ -235,7 +235,7 @@ Aufgaben:
 - Versorgungstage abschätzen und anzeigen.
 - Nahrung kann bei einem Ort gekauft oder als Missionsbelohnung erhalten werden.
 - Unterversorgung löst zunächst eine Warnung und Rekrutierungsstopp aus.
-- Bei anhaltendem Mangel sinken Moral beziehungsweise Stabilität; Desertion folgt in Meilenstein 8.
+- Anhaltender Mangel wird erfasst (Zahl der Hungertage); die Auswirkungen auf Moral beziehungsweise Stabilität und die Desertion folgen in Meilenstein 8.
 - Keine komplexen Produktionsgebäude.
 - In die Mini-Mission einbauen.
 
@@ -245,6 +245,10 @@ Abnahmekriterien:
 - Der Spieler kann Nahrung kaufen.
 - Die Armee kann bei Nahrungsknappheit nicht unbegrenzt wachsen.
 - Der Nahrungsverbrauch ist durch Vitest-Tests abgedeckt.
+
+Festlegungen (bestätigt am 2026-10-19):
+- Moral und Stabilität bei anhaltendem Mangel werden erst in Meilenstein 8 umgesetzt (zusammen mit der einfachen Moral der Armee).
+- Platzhalter-Rekrutierung der Mini-Mission: Freiwillige schließen sich nicht mehr nur alle auf einmal an. Ein Klick aufs Dorf holt so viele, wie die Nahrung danach noch für die Warnschwelle (Startwert 2 Tage) versorgt; Umschalt+Klick holt genau eine Person. Die übrigen bleiben im Dorf verfügbar.
 
 ## Meilenstein 5 – Rekrutierung und Landsknecht-Ökonomie
 

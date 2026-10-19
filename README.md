@@ -29,14 +29,28 @@ Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). 
 
 Eine kleine Gruppe Bauern steht am Westrand des Weges. Südwestlich liegt das Dorf Hohenweiler, östlich des Bachs ein Wachposten.
 
-1. Bauern auswählen und in den blauen Kreis um das Dorf schicken, dann das Dorf anklicken: 6 Freiwillige schließen sich einmalig an
+1. Bauern auswählen und in den blauen Kreis um das Dorf schicken, dann das Dorf anklicken: Von den 6 Freiwilligen des Dorfes
+   schließen sich so viele an, wie die Nahrung danach noch 2 Tage versorgt; Umschalt+Klick holt genau einen.
+   Die übrigen bleiben im Dorf und können nach einem Nahrungskauf (**F**) nachkommen
    (Platzhalter-Rekrutierung, wird in Meilenstein 5 ersetzt).
 2. Über die Furt zum Posten ziehen und die Wachen angreifen.
 3. **Sieg:** eigene Einheiten stehen 5 Sekunden lang im Kreis des Postens, ohne dass Gegner darin sind (Fortschrittsring, Anzeige oben links).
    Verlassen alle eigenen Einheiten den Kreis, sinkt der Fortschritt wieder; stehen Gegner darin, pausiert er.
 4. **Niederlage:** alle eigenen Einheiten sind gefallen.
 
-Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit) stehen in `src/game/data/missions.ts`.
+Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit, Startvorräte, Nahrungsangebot des Dorfes, Belohnung)
+stehen in `src/game/data/missions.ts`.
+
+**Gold und Nahrung** (Anzeige oben rechts)
+
+- 1 Spieltag = 60 Sekunden Echtzeit. Am Ende jedes Tages isst jede lebende eigene Einheit 1 Nahrung (einmaliger Abzug).
+- Angezeigt werden Tag, Zeit bis zum nächsten Abzug, Gold, Nahrung, Tagesverbrauch und „Nahrung reicht für ca. X Tage“.
+- Reicht die Nahrung für weniger als 2 Tage, färbt sich die Anzeige orange (Warnung). Fehlt am Tagesende Nahrung,
+  hungert der Haufen: Nahrung bleibt bei 0, die Anzeige wird rot.
+- Rekrutierungsstopp: Freiwillige schließen sich nur an, soweit die Nahrung danach noch mindestens 2 Tage reicht, und gar nicht, solange der Haufen hungert.
+- Nahrung kaufen: eigene Leute ins Dorf schicken, **F** drücken (10 Nahrung für 10 Gold, insgesamt 30 vorrätig).
+- Sieg bringt eine Belohnung (+25 Gold, +20 Nahrung).
+- Zeitmaßstab, Verbrauch und Warnschwelle stehen in `src/game/data/balance.ts`.
 
 **Steuerung**
 
@@ -51,7 +65,8 @@ Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit) stehen in `sr
 | Position halten | H (Einheiten bleiben stehen und kämpfen nur in eigener Reichweite) |
 | Rückzug | R (ausgewählte Einheiten lösen sich aus dem Kampf und laufen zum Sammelpunkt, blaue Fahne) |
 | Sammelpunkt setzen | P (an die Position des Mauszeigers) |
-| Rekrutieren (Mini-Mission) | eigene Einheit in den blauen Kreis ums Dorf schicken, dann Linksklick auf das Dorf |
+| Rekrutieren (Mini-Mission) | eigene Einheit in den blauen Kreis ums Dorf schicken, dann Linksklick auf das Dorf (Umschalt+Klick: nur einer) |
+| Nahrung kaufen (Mini-Mission) | eigene Einheit im blauen Kreis ums Dorf, dann F |
 | Neustart | N |
 | Testgefecht ein/aus | T (freies Gefecht aller Einheitentypen aus Meilenstein 1–3) |
 | Belastungstest mit 100 Einheiten ein/aus | B (beide Armeen greifen sofort an; FPS oben links) |
@@ -105,11 +120,11 @@ src/
   main.ts             Einstiegspunkt, Phaser-Konfiguration
   scenes/             Phaser-Szenen (Boot, Mission, UI)
   game/
-    data/             Datengetriebene Definitionen (Karten, Missionen, Einheitentypen, Waffen, Rüstungen, Bewegungs-, Kampf- und Steuerungskonstanten, Test- und Belastungsszenario)
+    data/             Datengetriebene Definitionen (Karten, Missionen, Einheitentypen, Waffen, Rüstungen, Bewegungs-, Kampf- und Steuerungskonstanten, Versorgung/Balancing, Test- und Belastungsszenario)
     map/              Kacheltypen und Kartengenerator (ohne Phaser)
     camera/           Kamera-Mathematik (ohne Phaser)
     entities/         Einheitenzustand und Erzeugung der Startgruppen (ohne Phaser)
-    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf, Gegner-KI und Missionsregeln (ohne Phaser)
+    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf, Gegner-KI und Missionsregeln und Versorgung (ohne Phaser)
   tests/              Vitest-Tests
 ```
 

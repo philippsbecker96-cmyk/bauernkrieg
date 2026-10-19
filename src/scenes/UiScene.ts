@@ -6,6 +6,7 @@ import {
   type MissionStatusEvent,
   type NoticeEvent,
   type SelectionChangedEvent,
+  type SupplyStatusEvent,
   type TileHoverEvent,
   type UnitInfoEvent,
 } from './sceneKeys';
@@ -23,6 +24,7 @@ export class UiScene extends Phaser.Scene {
   private fpsText?: Phaser.GameObjects.Text;
   private missionText?: Phaser.GameObjects.Text;
   private noticeText?: Phaser.GameObjects.Text;
+  private supplyText?: Phaser.GameObjects.Text;
   private noticeTimer?: Phaser.Time.TimerEvent;
   private fpsTimer = 0;
 
@@ -48,7 +50,7 @@ export class UiScene extends Phaser.Scene {
         'Auswählen: Linksklick / Rahmen ziehen · Umschalt: hinzufügen · Esc: abwählen',
         'Bewegen: Rechtsklick · Angreifen: Rechtsklick auf Gegner',
         'Halten: H · Rückzug zum Sammelpunkt: R · Sammelpunkt an Mauszeiger setzen: P',
-        'Rekrutieren: eigene Leute ins Dorf schicken, dann Linksklick auf das Dorf',
+        'Rekrutieren: eigene Leute ins Dorf schicken, dann Linksklick auf das Dorf (Umschalt: nur einer) · Nahrung kaufen dort: F',
         'Kamera: WASD / Pfeiltasten · Zoom: Mausrad · Ziehen: mittlere Maustaste · Neustart: N',
         'Testgefecht ein/aus: T · Belastungstest (100 Einheiten) ein/aus: B · Einheitenwerte: Maus über Einheit',
       ].join('\n'),
@@ -74,6 +76,12 @@ export class UiScene extends Phaser.Scene {
         padding: { x: 24, y: 16 },
       })
       .setOrigin(0.5)
+      .setVisible(false);
+
+    // Supplies in the top-right corner, away from the help and status lines.
+    this.supplyText = this.add
+      .text(this.scale.width - 12, 12, '', { ...style, align: 'right' })
+      .setOrigin(1, 0)
       .setVisible(false);
 
     this.noticeText = this.add
@@ -123,7 +131,20 @@ export class UiScene extends Phaser.Scene {
       this.noticeTimer?.remove();
       this.noticeTimer = this.time.delayedCall(4000, () => this.noticeText?.setVisible(false));
     };
+    const supplyColors: Record<SupplyStatusEvent['level'], string> = {
+      ok: '#f3e9d2',
+      low: '#f0b44c',
+      shortage: '#ff7a5c',
+    };
+    const onSupply = (event: SupplyStatusEvent) => {
+      this.supplyText
+        ?.setText(event.text ?? '')
+        .setColor(supplyColors[event.level])
+        .setPosition(this.scale.width - 12, 12)
+        .setVisible(event.text !== null);
+    };
     this.game.events.on(GameEvents.TileHover, onHover);
+    this.game.events.on(GameEvents.SupplyStatus, onSupply);
     this.game.events.on(GameEvents.UnitInfo, onUnitInfo);
     this.game.events.on(GameEvents.SelectionChanged, onSelection);
     this.game.events.on(GameEvents.BattleStatus, onBattle);
@@ -136,6 +157,7 @@ export class UiScene extends Phaser.Scene {
       this.game.events.off(GameEvents.UnitInfo, onUnitInfo);
       this.game.events.off(GameEvents.MissionStatus, onMission);
       this.game.events.off(GameEvents.Notice, onNotice);
+      this.game.events.off(GameEvents.SupplyStatus, onSupply);
     });
   }
 

@@ -1,4 +1,5 @@
 import type { MapConfig } from './maps';
+import type { FoodOffer, Supplies } from '../systems/supply';
 import type { UnitGroupSpawn } from './testScenario';
 
 /**
@@ -18,13 +19,19 @@ export interface SiteDefinition {
 
 /**
  * Village with placeholder recruitment: when a player unit stands within
- * `recruitRadius` and the player clicks the village, `recruits` join once.
+ * `recruitRadius` and the player clicks the village, volunteers join – as many
+ * as the food can sustain (milestone 4), in total at most `recruits.count`.
  * Replaced by the real recruitment (support, supply) in milestone 5.
  */
 export interface VillageDefinition extends SiteDefinition {
   /** Radius (px) around the village centre a player unit must be in to recruit. */
   recruitRadius: number;
   recruits: Omit<UnitGroupSpawn, 'tileX' | 'tileY'>;
+  /**
+   * Food the village sells (milestone 4): one lot per purchase while a player unit
+   * stands within `recruitRadius`; `stock` is the total food it can sell in this mission.
+   */
+  foodMarket?: FoodOffer & { stock: number };
 }
 
 /**
@@ -51,6 +58,10 @@ export interface MissionDefinition {
   rallyPoint: { tileX: number; tileY: number };
   villages: readonly VillageDefinition[];
   post: PostDefinition;
+  /** Gold and food at mission start (milestone 4). */
+  startSupplies: Supplies;
+  /** Gold and food credited once on victory. */
+  reward: Supplies;
 }
 
 export const MINI_MISSION_MAP: MapConfig = {
@@ -81,6 +92,7 @@ export const MINI_MISSION: MissionDefinition = {
       clearRadius: 2,
       recruitRadius: 80,
       recruits: { typeId: 'peasant', count: 6 },
+      foodMarket: { amount: 10, price: 10, stock: 30 },
     },
   ],
   post: {
@@ -97,4 +109,8 @@ export const MINI_MISSION: MissionDefinition = {
       { typeId: 'guardCrossbowman', count: 1, tileX: 34, tileY: 20 },
     ],
   },
+  // 18 food last the 6 starting peasants 3 days, but not 12 peasants for 2 days:
+  // recruiting the village's volunteers requires buying food first.
+  startSupplies: { gold: 40, food: 18 },
+  reward: { gold: 25, food: 20 },
 };

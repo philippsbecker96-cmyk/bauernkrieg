@@ -12,7 +12,15 @@ export const GameEvents = {
   UnitInfo: 'unit-info',
   MissionStatus: 'mission-status',
   Notice: 'notice',
+  SupplyStatus: 'supply-status',
 } as const;
+
+/** Gold, food and supply days of the mini mission; `null` hides the panel (test scenarios). */
+export interface SupplyStatusEvent {
+  text: string | null;
+  /** Colours the panel: `low` and `shortage` are warnings. */
+  level: 'ok' | 'low' | 'shortage';
+}
 
 /** Objective and village state of the mini mission; `null` hides the panel (test scenarios). */
 export interface MissionStatusEvent {
