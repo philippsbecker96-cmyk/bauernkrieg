@@ -26,6 +26,15 @@ Das Spiel soll sich nicht wie ein klassisches Aufbauspiel mit zahlreichen Produk
 
 Die Kampagne erzählt die Entwicklung desselben Bauernhaufens. Verluste bleiben zwischen Missionen bestehen und machen Siege wie Niederlagen bedeutsam.
 
+### Banner des Haufens
+Der Haufen zieht unter einer **Regenbogenfahne**, angelehnt an das Banner, das Thomas Müntzer 1525 in Mühlhausen anfertigen ließ (siehe Abschnitt 14). Sie gibt dem Haufen eine erkennbare Identität und erscheint an mehreren Stellen:
+- als **Sammelpunkt** auf der Karte (aufgepflanzte Fahne beim Rückzugs- beziehungsweise Sammelbefehl),
+- im Hauptmenü beziehungsweise Titelbild,
+- auf dem Kampagnenbildschirm zwischen den Missionen,
+- gegebenenfalls in der HUD-Leiste.
+
+Die Fahne ist zunächst rein gestalterisch und hat keine eigene Spielmechanik.
+
 ### Designprinzipien
 
 - **Eine fortbestehende Armee:** Überlebende und ihre Ausrüstung werden in die nächste Mission übernommen.
@@ -439,6 +448,8 @@ Die Oberfläche soll die wichtigsten Entscheidungen auf einen Blick ermöglichen
 - Bei Beuteabrechnungen: Gesamtbeute, Landsknecht-Anteil und Spieleranteil.
 - Begleitende Persönlichkeiten (z. B. Thomas Müntzer) und ihre Wirkung.
 
+Der Sammelpunkt wird als Regenbogenfahne des Haufens dargestellt (siehe Abschnitt 1, Banner des Haufens).
+
 Warnungen bei drohender Desertion oder Versorgungskrise müssen früh genug angezeigt werden, damit der Spieler reagieren kann.
 
 ---
@@ -518,6 +529,8 @@ Daher gilt:
 - Veteranen und Landsknechte sind seltene, wertvolle Verstärkungen.
 - Feuerwaffen und Artillerie sind optionale, seltene Beutestücke und keine zentrale Voraussetzung des Spiels.
 - Historische Plausibilität soll Spielentscheidungen stützen, nicht zu unnötiger Komplexität führen.
+
+**Zur Regenbogenfahne:** Historisch gehört sie vor allem zu Müntzers thüringischem Haufen, der unter ihr bei Frankenhausen am 15. Mai 1525 geschlagen wurde; der Überlieferung nach trug sie die Inschrift „Verbum domini maneat in aeternum“. Das weiter verbreitete Zeichen der Bauernbewegung war der Bundschuh. Das Spiel nutzt die Regenbogenfahne bewusst als Banner des eigenen Haufens.
 
 Eigene Grafiken, Namen, Karten, Musik und Texte verwenden. Keine geschützten Spielressourcen oder fremden Spielcodes ungeprüft übernehmen.
 

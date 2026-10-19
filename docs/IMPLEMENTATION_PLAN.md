@@ -97,6 +97,11 @@ Laut Design-Dokument können Landsknechte bei Zahlungsverzug unzufrieden werden 
 - Feuerwaffen und Artillerie sind spätere optionale Erweiterungen.
 - Veteranen und Landsknechte haben höhere Grundwerte als einfache Bauern; ihre Kampfkraft hängt zusätzlich von Ausrüstung und Rüstung ab.
 
+### 2.6 Banner des Haufens
+- Die Regenbogenfahne ist das Banner des eigenen Haufens (siehe `docs/GAME_DESIGN.md`, Abschnitt 1).
+- Sie erscheint als Sammelpunkt auf der Karte, im Hauptmenü, auf dem Kampagnenbildschirm und gegebenenfalls im HUD.
+- Zunächst rein gestalterisch, ohne eigene Spielmechanik. Die einzelnen Stellen werden in den Meilensteinen 8, 9 und 12 umgesetzt; die Sammelpunkt-Fahne kann als kleine Grafikänderung auch früher eingebaut werden.
+
 ---
 
 ## 3. Meilensteine
@@ -374,6 +379,7 @@ Aufgaben:
 - Marsch zwischen Missionen: pauschaler Nahrungsverbrauch für 3 Spieltage (konfigurierbar).
 - Speichersystem: Kampagnenstand als JSON mit Versionsnummer im localStorage, nur zwischen Missionen.
 - Spielstand beim Neuladen der Seite wiederherstellen.
+- Kampagnenbildschirm zwischen den Missionen mit der Regenbogenfahne des Haufens (Abschnitt 2.6).
 
 Abnahmekriterien:
 - Versorgungskrise hat spürbare, vorhersehbare Folgen.
@@ -419,6 +425,7 @@ Inhalt:
 - Ein klares Hauptziel.
 - Sieg- und Niederlagebedingungen.
 - Nach Missionsende wird der Armee- und Ressourcenstand gespeichert und an die Kampagnenebene übergeben.
+- Der Sammelpunkt wird als Regenbogenfahne dargestellt, sofern nicht schon früher umgesetzt; Hauptmenü beziehungsweise Titelbild mit der Fahne (Abschnitt 2.6).
 
 Abnahmekriterien:
 - Die Mission ist ohne Entwicklerkonsole spielbar.
@@ -468,7 +475,7 @@ Abnahmekriterien:
 ## Meilenstein 12 – Politur und optionale Inhalte
 
 Erst nach einer funktionierenden Kampagne:
-- bessere Grafiken und Animationen,
+- bessere Grafiken und Animationen (einschließlich einer ausgearbeiteten Regenbogenfahne, gegebenenfalls im HUD),
 - Soundeffekte und Musik,
 - zusätzliche Waffenvarianten wie Dreschflegel, Kriegssense, Bauernwehr oder Dolch,
 - seltene Handbüchsen/Arkebusen,
