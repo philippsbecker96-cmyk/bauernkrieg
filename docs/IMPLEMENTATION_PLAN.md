@@ -261,6 +261,8 @@ Festlegungen (bestätigt am 2026-10-19):
 
 ## Meilenstein 4a – Jagd
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Wälder werden zu einer zusätzlichen, begrenzten Nahrungsquelle, die Zeit, Kampfkraft und Risiko kostet (siehe `docs/GAME_DESIGN.md`, Abschnitt 5.4).
 
 Aufgaben:
@@ -292,6 +294,14 @@ Abnahmekriterien:
 - Jäger sind auf der Karte angreifbar und stehen währenddessen nicht für Angriffe zur Verfügung.
 - Wildarten, Nahrungswerte, Bestandsregel (fest, größenabhängig, zufällig) und Nachwachsen lassen sich in den Daten ändern, ohne den Spielcode umzuschreiben.
 - Ertrag, Wildbestand, Nachwachsen, Rückruf und Gutschrift sind durch Vitest-Tests abgedeckt.
+
+Festlegungen (bestätigt am 2026-10-19):
+- Die Startgruppe der Mini-Mission erhält einen Armbrustschützen, damit der Waffenunterschied bei der Jagd erlebbar ist; die Startnahrung steigt von 18 auf 21 (weiterhin 3 Tage Vorrat).
+- Jäger kehren zur nächsten eigenen, nicht jagenden Einheit zurück; jagt der ganze Haufen, zum Sammelpunkt.
+- Benannte Wälder der Mini-Mission: Krähenholz (nahe am Start) und Herrenwald (wildreich, Gebiet des Junkers vom Mühlbach, Ansatzpunkt für die Wilderei in Meilenstein 6). Steuerung: J (jagen), Z (zurückrufen). Werte in `src/game/data/hunting.ts`.
+
+Eindrücke zum Spielgefühl:
+- Die Wachen bemerken Jäger im Herrenwald nicht (knapp außerhalb ihrer Sichtweite); das Risiko der Jagd ist in der Mini-Mission daher gering. Die Folgen der Wilderei kommen mit Meilenstein 6.
 
 ## Meilenstein 5 – Rekrutierung und Landsknecht-Ökonomie
 
