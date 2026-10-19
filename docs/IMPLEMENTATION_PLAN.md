@@ -171,6 +171,8 @@ Abnahmekriterien:
 
 ## Meilenstein 3 – Einheitenrollen, Waffen und Rüstung
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Ausrüstung und Grundwerte erzeugen erkennbare taktische Unterschiede.
 
 Aufgaben:
