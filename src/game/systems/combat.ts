@@ -20,6 +20,8 @@ export interface CombatConfig {
   coverGrid?: CoverGrid;
   /** Random source in [0, 1) for hit rolls; `Math.random` if omitted. Pass a seeded one in tests. */
   random?: () => number;
+  /** Damage units on a hunting trip take is multiplied by this (they defend themselves worse); 1 if omitted. */
+  hunterDamageTaken?: number;
 }
 
 /** Share of ranged shots that miss, per tile, indexed as `grid[y][x]`. */
@@ -217,7 +219,7 @@ function attack(
       return;
     }
   }
-  const damage = damageAgainst(unit, weapon, target);
+  const damage = damageAgainst(unit, weapon, target) * (target.order === 'hunt' ? (config.hunterDamageTaken ?? 1) : 1);
   target.hp -= damage;
   events.push({
     kind: 'hit',
@@ -280,6 +282,24 @@ function alertAllies(unit: Unit, target: Unit, units: readonly Unit[], config: C
   }
 }
 
+/** Fights the current or nearest enemy within the unit's own reach without moving. */
+function holdAndFight(
+  unit: Unit,
+  units: readonly Unit[],
+  byId: ReadonlyMap<number, Unit>,
+  grid: WalkGrid,
+  config: CombatConfig,
+  events: CombatEvent[],
+): void {
+  let target = byId.get(unit.targetId ?? -1);
+  if (!isAlive(target) || edgeDistance(unit, target) > maxReach(unit)) {
+    const reach = maxReach(unit);
+    target = nearestEnemy(unit, units, (e) => edgeDistance(unit, e) <= reach);
+  }
+  unit.targetId = target?.id ?? null;
+  if (target) fight(unit, target, units, grid, config, events, false);
+}
+
 function updateUnit(
   unit: Unit,
   units: readonly Unit[],
@@ -295,16 +315,15 @@ function updateUnit(
       if (!isMoving(unit)) becomeIdle(unit);
       return;
 
-    case 'hold': {
-      let target = byId.get(unit.targetId ?? -1);
-      if (!isAlive(target) || edgeDistance(unit, target) > maxReach(unit)) {
-        const reach = maxReach(unit);
-        target = nearestEnemy(unit, units, (e) => edgeDistance(unit, e) <= reach);
-      }
-      unit.targetId = target?.id ?? null;
-      if (target) fight(unit, target, units, grid, config, events, false);
+    case 'hunt':
+      // Hunters walking to or from the forest ignore enemies; while hunting they only defend themselves.
+      if (isMoving(unit)) return;
+      holdAndFight(unit, units, byId, grid, config, events);
       return;
-    }
+
+    case 'hold':
+      holdAndFight(unit, units, byId, grid, config, events);
+      return;
 
     case 'attack': {
       const target = byId.get(unit.targetId ?? -1);
@@ -376,10 +395,10 @@ export function stepCombat(units: Unit[], grid: WalkGrid, dt: number, config: Co
   return events;
 }
 
-/** Explicit attack order for a group of units. */
+/** Explicit attack order for a group of units. Hunters do not take it until they are back. */
 export function orderAttack(units: readonly Unit[], target: Unit): void {
   for (const unit of units) {
-    if (unit.faction === target.faction) continue;
+    if (unit.faction === target.faction || unit.order === 'hunt') continue;
     unit.order = 'attack';
     unit.targetId = target.id;
     unit.repathTimer = 0;

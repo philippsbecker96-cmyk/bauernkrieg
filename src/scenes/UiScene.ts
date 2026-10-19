@@ -51,6 +51,7 @@ export class UiScene extends Phaser.Scene {
         'Bewegen: Rechtsklick · Angreifen: Rechtsklick auf Gegner',
         'Halten: H · Rückzug zum Sammelpunkt: R · Sammelpunkt an Mauszeiger setzen: P',
         'Rekrutieren: eigene Leute ins Dorf schicken, dann Linksklick auf das Dorf (Umschalt: nur einer) · Nahrung kaufen dort: F',
+        'Jagen: Leute auswählen, Mauszeiger auf Wald, J · Jäger zurückrufen: Z',
         'Kamera: WASD / Pfeiltasten · Zoom: Mausrad · Ziehen: mittlere Maustaste · Neustart: N',
         'Testgefecht ein/aus: T · Belastungstest (100 Einheiten) ein/aus: B · Einheitenwerte: Maus über Einheit',
       ].join('\n'),

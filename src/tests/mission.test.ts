@@ -87,9 +87,9 @@ describe('Karte der Mini-Mission', () => {
     }
   });
 
-  it('Startgruppe besteht aus einfachen Bauern, der Posten aus einigen Wachen', () => {
+  it('Startgruppe besteht aus einfachen Bauern und einem Armbrustschützen (Jagd), der Posten aus einigen Wachen', () => {
     const { units } = setup();
-    expect(players(units).every((u) => u.typeId === 'peasant')).toBe(true);
+    expect(players(units).filter((u) => u.typeId !== 'peasant').map((u) => u.typeId)).toEqual(['crossbowman']);
     expect(players(units).length).toBeGreaterThan(0);
     expect(enemies(units).length).toBeGreaterThanOrEqual(3);
     // The whole garrison stands inside the capture zone at the start.

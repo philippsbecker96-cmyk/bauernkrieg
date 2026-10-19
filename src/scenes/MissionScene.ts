@@ -7,6 +7,7 @@ import { MINI_MISSION, type VillageDefinition } from '../game/data/missions';
 import { MOVEMENT, SELECTION } from '../game/data/movement';
 import { getArmor } from '../game/data/armor';
 import { SUPPLY } from '../game/data/balance';
+import { HUNTING } from '../game/data/hunting';
 import { STRESS_SCENARIO, TEST_RALLY_POINT, TEST_SCENARIO } from '../game/data/testScenario';
 import { getUnitType } from '../game/data/units';
 import { getWeapon, type WeaponDefinition } from '../game/data/weapons';
@@ -29,6 +30,21 @@ import {
   type CombatEvent,
 } from '../game/systems/combat';
 import { orderGroupMove } from '../game/systems/formation';
+import {
+  carriedFood,
+  createHuntingState,
+  forestAt,
+  forestCentre,
+  isHunting,
+  orderHunt,
+  recallHunters,
+  stepHunting,
+  stockLevel,
+  STOCK_LEVEL_NAMES,
+  type HuntEvent,
+  type HuntingState,
+  type HuntPhase,
+} from '../game/systems/hunting';
 import {
   armySize,
   buildMissionTiles,
@@ -120,6 +136,12 @@ const VILLAGE_HOUSES: readonly (readonly [number, number])[] = [
 /** Half edge (px) of the square around the village centre that counts as a click on the village. */
 const VILLAGE_CLICK_HALF_SIZE = 40;
 
+const HUNT_PHASE_NAMES: Record<HuntPhase, string> = {
+  toForest: 'unterwegs zum Wald',
+  hunting: 'jagt',
+  returning: 'kehrt zurück',
+};
+
 /**
  * Shows the map, the units and handles input: camera (keyboard panning,
  * mouse-wheel zoom, middle-mouse drag), unit selection (click, Shift-click,
@@ -132,6 +154,9 @@ export class MissionScene extends Phaser.Scene {
   private mapConfig: MapConfig = MINI_MISSION.map;
   /** Mission rules state; only used in the mini mission. */
   private mission: MissionState = createMissionState(MINI_MISSION);
+  /** Forest regions and hunting trips; only filled in the mini mission. */
+  private hunting: HuntingState = createHuntingState([], HUNTING, 0);
+  private forestLabels: Phaser.GameObjects.Text[] = [];
   private siteGraphics?: Phaser.GameObjects.Graphics;
   private lastMissionText: string | null = null;
   private lastSupplyText: string | null = null;
@@ -161,6 +186,7 @@ export class MissionScene extends Phaser.Scene {
     tileSize: this.mapConfig.tileSize,
     ...COMBAT,
     lineOfSightMargin: MOVEMENT.lineOfSightMargin,
+    hunterDamageTaken: HUNTING.damageTakenFactor,
   };
   private scenario: ScenarioKind = 'mission';
   private lastUnitInfo: string | null = null;
@@ -191,6 +217,9 @@ export class MissionScene extends Phaser.Scene {
     this.mapConfig = config;
     this.tiles = isMission ? buildMissionTiles(MINI_MISSION) : generateMap(config);
     this.walkGrid = buildWalkGrid(this.tiles);
+    this.hunting = isMission
+      ? createHuntingState(this.tiles, HUNTING, config.seed, MINI_MISSION.hunting)
+      : createHuntingState([], HUNTING, 0);
     this.movementConfig = { ...this.movementConfig, tileSize: config.tileSize };
     this.combatConfig = { ...this.combatConfig, tileSize: config.tileSize, coverGrid: buildCoverGrid(this.tiles) };
 
@@ -215,6 +244,20 @@ export class MissionScene extends Phaser.Scene {
     this.hoverMarker.setVisible(false);
 
     this.siteGraphics = this.add.graphics().setDepth(1.5);
+    this.forestLabels = this.hunting.forests.map((forest) => {
+      const c = forestCentre(forest, config.tileSize);
+      return this.add
+        .text(c.x, c.y, '', {
+          fontFamily: 'Georgia, "Times New Roman", serif',
+          fontSize: '11px',
+          color: '#f3e9d2',
+          backgroundColor: 'rgba(27, 26, 23, 0.55)',
+          padding: { x: 3, y: 1 },
+          align: 'center',
+        })
+        .setOrigin(0.5)
+        .setDepth(1.6);
+    });
     this.overlay = this.add.graphics().setDepth(2);
     this.selectionBox = this.add.graphics().setDepth(4);
 
@@ -275,6 +318,8 @@ export class MissionScene extends Phaser.Scene {
       keyboard.on('keydown-R', () => this.issueRetreatOrder());
       keyboard.on('keydown-P', () => this.setRallyPointAtPointer());
       keyboard.on('keydown-F', () => this.tryBuyFood());
+      keyboard.on('keydown-J', () => this.issueHuntOrder());
+      keyboard.on('keydown-Z', () => this.issueRecall());
       keyboard.on('keydown-N', () => this.scene.restart({ scenario: this.scenario }));
       keyboard.on('keydown-B', () =>
         this.scene.restart({ scenario: this.scenario === 'stress' ? 'mission' : 'stress' }),
@@ -453,8 +498,72 @@ export class MissionScene extends Phaser.Scene {
     }
   }
 
+  /** Key J: selected units go hunting in the forest under the mouse pointer (mini mission only). */
+  private issueHuntOrder(): void {
+    if (this.scenario !== 'mission' || this.mission.outcome !== 'running') return;
+    const group = this.selectedUnits().filter((u) => !isHunting(u));
+    if (group.length === 0) {
+      this.notify('Jagd: Wähle zuerst eigene Leute aus, die nicht schon jagen.');
+      return;
+    }
+    const pointer = this.input.activePointer;
+    const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const size = this.mapConfig.tileSize;
+    const tile = worldToTile(world.x, world.y, size);
+    const forest = forestAt(this.hunting, tile.x, tile.y);
+    if (!forest) {
+      this.notify('Jagd: Zeige mit dem Mauszeiger auf ein Waldstück und drücke dann J.');
+      return;
+    }
+    const hunters = orderHunt(
+      this.hunting,
+      group,
+      forest,
+      { x: world.x, y: world.y },
+      this.walkGrid,
+      size,
+      MOVEMENT.formationSpacing,
+      MOVEMENT.lineOfSightMargin,
+      HUNTING,
+      this.mission.supply.day,
+    );
+    this.showTargetMarker(world.x, world.y, 0xd9a441);
+    const level = stockLevel(forest, HUNTING);
+    this.notify(
+      `${hunters.length} Jäger ziehen ins ${forest.name} (${STOCK_LEVEL_NAMES[level]}). ` +
+        'Sie kehren selbst zurück; Z ruft sie früher zurück.' +
+        (level === 'exhausted' ? ' Dort gibt es nichts mehr zu holen!' : ''),
+    );
+  }
+
+  /** Key Z: recalls the selected hunters, or all hunters if none is selected. */
+  private issueRecall(): void {
+    if (this.scenario !== 'mission') return;
+    const selectedHunters = this.selectedUnits().filter(isHunting);
+    const hunters = selectedHunters.length > 0 ? selectedHunters : this.units.filter(isHunting);
+    const count = recallHunters(this.hunting, hunters);
+    this.notify(
+      count > 0
+        ? `${count} Jäger brechen die Jagd ab und kehren mit ihrer Beute zurück.`
+        : 'Zurückrufen: Keine Jäger unterwegs zum oder im Wald.',
+    );
+  }
+
+  /**
+   * Selected units that take orders: hunters only listen to the recall (Z).
+   * Tells the player once if hunters were left out.
+   */
+  private commandableUnits(): Unit[] {
+    const selected = this.selectedUnits();
+    const group = selected.filter((u) => !isHunting(u));
+    if (group.length < selected.length) {
+      this.notify('Jäger nehmen erst wieder Befehle an, wenn sie zurück sind (Z: zurückrufen).');
+    }
+    return group;
+  }
+
   private issueMoveOrder(worldX: number, worldY: number): void {
-    const group = this.units.filter((u) => this.selected.has(u.id));
+    const group = this.commandableUnits();
     if (group.length === 0) return;
     const result = orderGroupMove(
       group,
@@ -473,14 +582,14 @@ export class MissionScene extends Phaser.Scene {
   }
 
   private issueAttackOrder(target: Unit): void {
-    const group = this.selectedUnits();
+    const group = this.commandableUnits();
     if (group.length === 0) return;
     orderAttack(group, target);
     this.showTargetMarker(target.x, target.y, 0xe0563f);
   }
 
   private issueHoldOrder(): void {
-    const group = this.selectedUnits();
+    const group = this.commandableUnits();
     if (group.length === 0) return;
     orderHold(group);
     for (const unit of group) this.showTargetMarker(unit.x, unit.y, 0x9be37a);
@@ -488,7 +597,7 @@ export class MissionScene extends Phaser.Scene {
 
   /** Selected units break off any fight and march to the rally point, ignoring enemies on the way. */
   private issueRetreatOrder(): void {
-    const group = this.selectedUnits();
+    const group = this.commandableUnits();
     if (group.length === 0) return;
     orderGroupMove(
       group,
@@ -607,12 +716,86 @@ export class MissionScene extends Phaser.Scene {
           );
         }
       }
+      lines.push(...this.huntingStatusLines());
       text = lines.join('\n');
     }
     if (text === this.lastMissionText) return;
     this.lastMissionText = text;
     const event: MissionStatusEvent = { text };
     this.game.events.emit(GameEvents.MissionStatus, event);
+  }
+
+  /** Hunting party summary for the mission panel: who is where and how much food they carry. */
+  private huntingStatusLines(): string[] {
+    const hunts = [...this.hunting.hunts.values()];
+    if (hunts.length === 0) return ['Jagd: niemand unterwegs (Leute auswählen, Maus auf Wald, J)'];
+    const lines = [`Jagd: ${hunts.length} Jäger tragen ${carriedFood(this.hunting)} Nahrung (Z: zurückrufen)`];
+    for (const forest of this.hunting.forests) {
+      const here = hunts.filter((h) => h.forestId === forest.id);
+      if (here.length === 0) continue;
+      const phases = (Object.keys(HUNT_PHASE_NAMES) as HuntPhase[])
+        .map((phase) => {
+          const inPhase = here.filter((h) => h.phase === phase);
+          if (inPhase.length === 0) return null;
+          const time =
+            phase === 'hunting' ? `, noch ${Math.ceil(Math.max(...inPhase.map((h) => h.timeLeft)))} s` : '';
+          return `${inPhase.length} ${HUNT_PHASE_NAMES[phase]}${time}`;
+        })
+        .filter((p) => p !== null);
+      lines.push(`  ${forest.name} (${STOCK_LEVEL_NAMES[stockLevel(forest, HUNTING)]}): ${phases.join(', ')}`);
+    }
+    return lines;
+  }
+
+  /** Notices and floating texts for what happened while hunting. */
+  private handleHuntEvents(events: readonly HuntEvent[]): void {
+    let creditedFood = 0;
+    let creditedHunters = 0;
+    for (const event of events) {
+      const forest = this.hunting.forests[event.forestId];
+      const unit = this.units.find((u) => u.id === event.unitId);
+      if (event.kind === 'catch') {
+        if (unit) this.showFloatingText(unit.x, unit.y - 10, `${event.species} +${event.food}`, '#f6d98b');
+      } else if (event.kind === 'credited') {
+        creditedFood += event.food;
+        creditedHunters++;
+        if (unit && event.food > 0) this.showFloatingText(unit.x, unit.y - 10, `+${event.food} Nahrung`, '#9be37a');
+      } else if (event.kind === 'lost') {
+        this.notify(
+          event.food > 0
+            ? `Ein Jäger ist gefallen – ${event.food} getragene Nahrung sind verloren.`
+            : 'Ein Jäger ist gefallen.',
+        );
+      } else if (event.reason === 'exhausted' && forest) {
+        this.notify(`${forest.name}: Das Wild ist erschöpft – die Jäger kehren zurück.`);
+      }
+    }
+    if (creditedHunters > 0) {
+      this.notify(
+        creditedFood > 0
+          ? `${creditedHunters} Jäger zurück beim Haufen: +${creditedFood} Nahrung.`
+          : `${creditedHunters} Jäger zurück beim Haufen – ohne Beute.`,
+      );
+      this.emitSupplyStatus();
+      this.emitSelection();
+    }
+  }
+
+  private showFloatingText(x: number, y: number, text: string, color: string): void {
+    const label = this.add
+      .text(x, y, text, { fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '12px', color })
+      .setOrigin(0.5, 1)
+      .setDepth(6);
+    this.tweens.add({ targets: label, y: y - 24, alpha: 0, duration: 1600, onComplete: () => label.destroy() });
+  }
+
+  /** Map labels of the forest regions: name and rough game stock. */
+  private updateForestLabels(): void {
+    this.hunting.forests.forEach((forest, i) => {
+      const text = `${forest.name}\n${STOCK_LEVEL_NAMES[stockLevel(forest, HUNTING)]}`;
+      const label = this.forestLabels[i];
+      if (label && label.text !== text) label.setText(text);
+    });
   }
 
   /** Gold, food, consumption and supply days of the mini mission (`null` hides the panel in other scenarios). */
@@ -678,6 +861,7 @@ export class MissionScene extends Phaser.Scene {
     let remaining = Math.min(dt, 0.25);
     const events: CombatEvent[] = [];
     const days: DayReport[] = [];
+    const huntEvents: HuntEvent[] = [];
     while (remaining > 1e-6) {
       const step = Math.min(remaining, MAX_STEP);
       // After victory or defeat the fight is over; units only finish their walk.
@@ -688,6 +872,18 @@ export class MissionScene extends Phaser.Scene {
         if (this.mission.outcome === 'running') {
           days.push(...stepSupply(this.mission.supply, armySize(this.units), step, SUPPLY));
         }
+        huntEvents.push(
+          ...stepHunting(this.hunting, this.units, step, HUNTING, {
+            grid: this.walkGrid,
+            tileSize: this.mapConfig.tileSize,
+            spacing: MOVEMENT.formationSpacing,
+            margin: MOVEMENT.lineOfSightMargin,
+            fallback: this.rallyPoint,
+            supply: this.mission.supply,
+            secondsPerDay: SUPPLY.secondsPerDay,
+            day: this.mission.supply.day,
+          }),
+        );
         stepMission(this.mission, MINI_MISSION.post, this.units, step, this.mapConfig.tileSize);
       }
       remaining -= step;
@@ -700,6 +896,8 @@ export class MissionScene extends Phaser.Scene {
         this.emitBattleStatus();
       }
       this.reportDays(days);
+      if (huntEvents.length > 0) this.handleHuntEvents(huntEvents);
+      this.updateForestLabels();
       this.emitMissionStatus();
       this.emitSupplyStatus();
     }
@@ -867,6 +1065,19 @@ export class MissionScene extends Phaser.Scene {
 
     for (const unit of this.units) {
       const selected = this.selected.has(unit.id);
+      // Hunters: an ochre ring, filled further the more food they carry.
+      const task = this.hunting.hunts.get(unit.id);
+      if (task) {
+        g.lineStyle(1.5, 0xd9a441, 0.9);
+        g.strokeCircle(unit.x, unit.y, unit.radius + 5);
+        if (task.carried > 0) {
+          g.lineStyle(3, 0xd9a441, 1);
+          g.beginPath();
+          const share = Math.min(1, task.carried / HUNTING.carryCapacity);
+          g.arc(unit.x, unit.y, unit.radius + 5, -Math.PI / 2, -Math.PI / 2 + share * Math.PI * 2);
+          g.strokePath();
+        }
+      }
       if (selected || unit.hp < unit.maxHp) {
         const width = unit.radius * 2 + 4;
         const x = unit.x - width / 2;
@@ -947,6 +1158,16 @@ export class MissionScene extends Phaser.Scene {
         (armor.speedFactor < 1 ? `, Tempo ${Math.round(armor.speedFactor * 100)} %` : '') +
         ` · Training ×${type.attack}, Parade ${Math.round(type.defense * 100)} %`,
     );
+    const task = this.hunting.hunts.get(unit.id);
+    if (task) {
+      const forest = this.hunting.forests[task.forestId];
+      lines.push(
+        `Jäger (${forest?.name ?? 'Wald'}): ${HUNT_PHASE_NAMES[task.phase]}, trägt ${task.carried} Nahrung` +
+          ` · erleidet ${Math.round((HUNTING.damageTakenFactor - 1) * 100)} % mehr Schaden`,
+      );
+    } else if (unit.faction === 'player' && this.scenario === 'mission') {
+      lines.push(`Jagdglück: ${Math.round(HUNTING.catchChance[getWeapon(unit.equipment.weapon).weaponClass] * 100)} % je Versuch`);
+    }
     return lines.join('\n');
   }
 
@@ -997,7 +1218,11 @@ export class MissionScene extends Phaser.Scene {
     this.hoverMarker.setPosition(tileX * size, tileY * size).setVisible(true);
     if (this.lastHover?.x === tileX && this.lastHover.y === tileY) return;
     this.lastHover = { x: tileX, y: tileY };
-    const event: TileHoverEvent = { tileX, tileY, tileName: getTileDefinition(type).name };
+    const forest = forestAt(this.hunting, tileX, tileY);
+    const tileName = forest
+      ? `${getTileDefinition(type).name} – ${forest.name}, ${STOCK_LEVEL_NAMES[stockLevel(forest, HUNTING)]} (J: jagen)`
+      : getTileDefinition(type).name;
+    const event: TileHoverEvent = { tileX, tileY, tileName };
     this.game.events.emit(GameEvents.TileHover, event);
   }
 }

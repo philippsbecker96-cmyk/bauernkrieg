@@ -27,7 +27,7 @@ Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). 
 
 **Mini-Mission „Der erste Haufen“** (startet automatisch)
 
-Eine kleine Gruppe Bauern steht am Westrand des Weges. Südwestlich liegt das Dorf Hohenweiler, östlich des Bachs ein Wachposten.
+Eine kleine Gruppe Bauern mit einem Armbrustschützen steht am Westrand des Weges. Südwestlich liegt das Dorf Hohenweiler, östlich des Bachs ein Wachposten.
 
 1. Bauern auswählen und in den blauen Kreis um das Dorf schicken, dann das Dorf anklicken: Von den 6 Freiwilligen des Dorfes
    schließen sich so viele an, wie die Nahrung danach noch 2 Tage versorgt; Umschalt+Klick holt genau einen.
@@ -38,8 +38,8 @@ Eine kleine Gruppe Bauern steht am Westrand des Weges. Südwestlich liegt das Do
    Verlassen alle eigenen Einheiten den Kreis, sinkt der Fortschritt wieder; stehen Gegner darin, pausiert er.
 4. **Niederlage:** alle eigenen Einheiten sind gefallen.
 
-Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit, Startvorräte, Nahrungsangebot des Dorfes, Belohnung)
-stehen in `src/game/data/missions.ts`.
+Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit, Startvorräte, Nahrungsangebot des Dorfes, Belohnung,
+Namen und Wildbestand einzelner Wälder) stehen in `src/game/data/missions.ts`.
 
 **Gold und Nahrung** (Anzeige oben rechts)
 
@@ -51,6 +51,23 @@ stehen in `src/game/data/missions.ts`.
 - Nahrung kaufen: eigene Leute ins Dorf schicken, **F** drücken (10 Nahrung für 10 Gold, insgesamt 30 vorrätig).
 - Sieg bringt eine Belohnung (+25 Gold, +20 Nahrung).
 - Zeitmaßstab, Verbrauch und Warnschwelle stehen in `src/game/data/balance.ts`.
+
+**Jagd** (zusätzliche, begrenzte Nahrungsquelle)
+
+- Zusammenhängende Waldkacheln (ab 4 Kacheln) bilden ein Waldstück mit eigenem Wildbestand.
+  Name und grober Bestand (reich an Wild / mäßig Wild / erschöpft) stehen auf der Karte und beim Überfahren mit der Maus.
+- Jagen: eigene Leute auswählen, Mauszeiger auf ein Waldstück, **J**. Die Jäger laufen hin, jagen 30 Sekunden
+  und kehren dann selbst zum Haufen zurück (zur nächsten eigenen Einheit, die nicht jagt; gibt es keine, zum Sammelpunkt).
+- Alle 5 Sekunden versucht jeder Jäger einen Fang; die Chance hängt von seiner Waffe ab
+  (Armbrust 60 %, improvisierte Waffe 10 %). Wildschwein 12, Reh 8, Hase 2 Nahrung. Höchstens 16 Nahrung pro Jäger.
+- Die Beute wird erst gutgeschrieben, wenn ein Jäger wieder nah beim Haufen ist. Fällt er vorher, ist sein Anteil verloren.
+- **Z** ruft die ausgewählten Jäger zurück (ohne Auswahl: alle); sie bringen nur das bis dahin Erlegte mit.
+- Jäger (ockerfarbener Ring, gefüllt nach Traglast) nehmen keine anderen Befehle an, bis sie zurück sind.
+  Unterwegs ignorieren sie Gegner, beim Jagen wehren sie sich nur auf der Stelle und erleiden 50 % mehr Schaden.
+- Jeder Fang senkt den Wildbestand; ein erschöpfter Wald liefert nichts mehr. Das Wild wächst langsam nach (0,5 Tiere pro Tag).
+- Der wildreiche Herrenwald neben dem Posten gehört einem Herrn; Wilderei hat ab Meilenstein 6 Folgen.
+- Alle Werte (Wildarten, Bestandsregel fest / pro Waldkachel / mit Zufallsstreuung, Nachwachsen, Jagddauer,
+  Fangchance je Waffenklasse, Traglast, Verteidigungsmalus, Rückkehrradius) stehen in `src/game/data/hunting.ts`.
 
 **Steuerung**
 
@@ -67,6 +84,8 @@ stehen in `src/game/data/missions.ts`.
 | Sammelpunkt setzen | P (an die Position des Mauszeigers) |
 | Rekrutieren (Mini-Mission) | eigene Einheit in den blauen Kreis ums Dorf schicken, dann Linksklick auf das Dorf (Umschalt+Klick: nur einer) |
 | Nahrung kaufen (Mini-Mission) | eigene Einheit im blauen Kreis ums Dorf, dann F |
+| Jagen (Mini-Mission) | Einheiten auswählen, Mauszeiger auf ein Waldstück, J |
+| Jäger zurückrufen | Z (ausgewählte Jäger; ohne Auswahl alle) |
 | Neustart | N |
 | Testgefecht ein/aus | T (freies Gefecht aller Einheitentypen aus Meilenstein 1–3) |
 | Belastungstest mit 100 Einheiten ein/aus | B (beide Armeen greifen sofort an; FPS oben links) |
@@ -120,11 +139,11 @@ src/
   main.ts             Einstiegspunkt, Phaser-Konfiguration
   scenes/             Phaser-Szenen (Boot, Mission, UI)
   game/
-    data/             Datengetriebene Definitionen (Karten, Missionen, Einheitentypen, Waffen, Rüstungen, Bewegungs-, Kampf- und Steuerungskonstanten, Versorgung/Balancing, Test- und Belastungsszenario)
+    data/             Datengetriebene Definitionen (Karten, Missionen, Einheitentypen, Waffen, Rüstungen, Bewegungs-, Kampf- und Steuerungskonstanten, Versorgung/Balancing, Jagd, Test- und Belastungsszenario)
     map/              Kacheltypen und Kartengenerator (ohne Phaser)
     camera/           Kamera-Mathematik (ohne Phaser)
     entities/         Einheitenzustand und Erzeugung der Startgruppen (ohne Phaser)
-    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf, Gegner-KI und Missionsregeln und Versorgung (ohne Phaser)
+    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf, Gegner-KI, Missionsregeln, Versorgung und Jagd (ohne Phaser)
   tests/              Vitest-Tests
 ```
 

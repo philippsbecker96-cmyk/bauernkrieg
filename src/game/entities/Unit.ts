@@ -14,8 +14,10 @@ export interface Point {
  * - `engage`: fighting on its own initiative, at most `leashRadius` away from its post.
  * - `return`: walking back to its post after giving up a chase; enemies are ignored.
  * - `hold`: never moves, attacks only enemies within its own reach.
+ * - `hunt`: on a hunting trip (milestone 4a, see `systems/hunting.ts`); ignores enemies while
+ *   walking, defends itself only where it stands while hunting, takes no other orders.
  */
-export type UnitOrder = 'idle' | 'move' | 'retreat' | 'attack' | 'engage' | 'return' | 'hold';
+export type UnitOrder = 'idle' | 'move' | 'retreat' | 'attack' | 'engage' | 'return' | 'hold' | 'hunt';
 
 /** Simulation state of one unit. Pure data, no Phaser dependency. */
 export interface Unit {

@@ -1,3 +1,4 @@
+import type { MissionHunting } from './hunting';
 import type { MapConfig } from './maps';
 import type { FoodOffer, Supplies } from '../systems/supply';
 import type { UnitGroupSpawn } from './testScenario';
@@ -62,6 +63,8 @@ export interface MissionDefinition {
   startSupplies: Supplies;
   /** Gold and food credited once on victory. */
   reward: Supplies;
+  /** Hunting changes for this mission (milestone 4a); defaults in `hunting.ts`. */
+  hunting?: MissionHunting;
 }
 
 export const MINI_MISSION_MAP: MapConfig = {
@@ -79,8 +82,11 @@ export const MINI_MISSION: MissionDefinition = {
   name: 'Der erste Haufen (Mini-Mission)',
   briefing: 'Nimm den Posten der Wachen östlich des Bachs ein.',
   map: MINI_MISSION_MAP,
-  // A small band of peasants on the road at the west edge.
-  startArmy: [{ typeId: 'peasant', count: 6, tileX: 4, tileY: 15 }],
+  // A small band of peasants on the road at the west edge, with one crossbowman who can hunt well.
+  startArmy: [
+    { typeId: 'peasant', count: 6, tileX: 4, tileY: 15 },
+    { typeId: 'crossbowman', count: 1, tileX: 3, tileY: 15 },
+  ],
   rallyPoint: { tileX: 2, tileY: 15 },
   villages: [
     {
@@ -109,8 +115,16 @@ export const MINI_MISSION: MissionDefinition = {
       { typeId: 'guardCrossbowman', count: 1, tileX: 34, tileY: 20 },
     ],
   },
-  // 18 food last the 6 starting peasants 3 days, but not 12 peasants for 2 days:
-  // recruiting the village's volunteers requires buying food first.
-  startSupplies: { gold: 40, food: 18 },
+  // 21 food last the 7 starting units 3 days, but not 13 units for 2 days:
+  // recruiting all of the village's volunteers requires buying or hunting food first.
+  startSupplies: { gold: 40, food: 21 },
   reward: { gold: 25, food: 20 },
+  hunting: {
+    forests: [
+      // Small wood north of the start: safe, but soon hunted out.
+      { tileX: 9, tileY: 13, name: 'Krähenholz' },
+      // The lord's wood next to the guard post: rich in game, but within reach of the guards.
+      { tileX: 33, tileY: 14, name: 'Herrenwald', stock: 16, owner: 'Junker vom Mühlbach' },
+    ],
+  },
 };

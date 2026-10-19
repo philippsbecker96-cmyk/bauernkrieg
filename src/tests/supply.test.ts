@@ -167,6 +167,7 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
   const centre = siteCenter(village, tileSize);
   const army = (n: number): Unit[] =>
     Array.from({ length: n }, (_, i) => createUnit(i + 1, 'peasant', centre.x + (i % 3) * 8, centre.y));
+  const startArmySize = mission.startArmy.reduce((sum, group) => sum + group.count, 0);
 
   it('neue Leute nur, wenn die Nahrung danach noch lowSupplyDays reicht', () => {
     const state = createSupplyState({ gold: 0, food: 24 });
@@ -192,8 +193,8 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
 
   it('mit dem Startvorrat schließen sich nur so viele an, wie die Nahrung trägt; der Rest bleibt im Dorf', () => {
     const state = createMissionState(mission);
-    const units = army(mission.startArmy[0]!.count);
-    // 18 food last 2 days for 9 people: 3 of the 6 volunteers.
+    const units = army(startArmySize);
+    // 21 food last 2 days for 10 people (7 at the start): 3 of the 6 volunteers.
     expect(recruitableNow(state, village, units, SUPPLY)).toBe(3);
     const first = recruitAtVillage(state, village, units, grid, tileSize, MOVEMENT.formationSpacing, SUPPLY);
     expect(first).toHaveLength(3);
@@ -208,13 +209,13 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
     expect(rest).toHaveLength(3);
     units.push(...rest);
     expect(new Set(units.map((u) => u.id)).size).toBe(units.length);
-    expect(armySize(units)).toBe(12);
+    expect(armySize(units)).toBe(startArmySize + village.recruits.count);
     expect(checkRecruit(state, village, units, tileSize, SUPPLY)).toBe('noVolunteersLeft');
   });
 
   it('einzeln rekrutieren: maxCount = 1 holt genau eine Person', () => {
     const state = createMissionState(mission);
-    const units = army(mission.startArmy[0]!.count);
+    const units = army(startArmySize);
     const one = recruitAtVillage(state, village, units, grid, tileSize, MOVEMENT.formationSpacing, SUPPLY, 1);
     expect(one).toHaveLength(1);
     expect(volunteersLeft(state, village)).toBe(village.recruits.count - 1);
