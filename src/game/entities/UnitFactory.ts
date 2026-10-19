@@ -4,15 +4,19 @@ import { computeFormationSlots } from '../systems/formation';
 import { nearestWalkableTile, tileCenter, type WalkGrid } from '../systems/pathfinding';
 import { createUnit, type Unit } from './Unit';
 
-/** Creates all units of a scenario, each group arranged in a compact block on walkable ground. */
+/**
+ * Creates all units of a scenario, each group arranged in a compact block on walkable ground.
+ * Ids are consecutive from `firstId` (pass a higher one when adding units to a running mission).
+ */
 export function spawnUnits(
   grid: WalkGrid,
   tileSize: number,
   spawns: readonly UnitGroupSpawn[],
   spacing: number,
+  firstId = 1,
 ): Unit[] {
   const units: Unit[] = [];
-  let nextId = 1;
+  let nextId = firstId;
   for (const spawn of spawns) {
     const tile = nearestWalkableTile(grid, { x: spawn.tileX, y: spawn.tileY });
     if (!tile) continue;

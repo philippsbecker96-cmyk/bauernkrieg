@@ -57,3 +57,18 @@ export function generateMap(config: MapConfig): TileGrid {
 
   return tiles;
 }
+
+/**
+ * Turns forest within `radius` tiles of (`tileX`, `tileY`) into grass, so mission
+ * sites (villages, posts) stand on open ground. Water and road are left as they are.
+ */
+export function clearGround(tiles: TileGrid, tileX: number, tileY: number, radius: number): void {
+  for (let y = Math.floor(tileY - radius); y <= Math.ceil(tileY + radius); y++) {
+    const row = tiles[y];
+    if (row === undefined) continue;
+    for (let x = Math.floor(tileX - radius); x <= Math.ceil(tileX + radius); x++) {
+      if (x < 0 || x >= row.length || Math.hypot(x - tileX, y - tileY) > radius) continue;
+      if (row[x] === TileType.Forest) row[x] = TileType.Grass;
+    }
+  }
+}

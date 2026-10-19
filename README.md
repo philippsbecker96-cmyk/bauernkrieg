@@ -25,6 +25,19 @@ npm run dev
 
 Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). Änderungen am Code werden automatisch neu geladen.
 
+**Mini-Mission „Der erste Haufen“** (startet automatisch)
+
+Eine kleine Gruppe Bauern steht am Westrand des Weges. Südwestlich liegt das Dorf Hohenweiler, östlich des Bachs ein Wachposten.
+
+1. Bauern auswählen und in den blauen Kreis um das Dorf schicken, dann das Dorf anklicken: 6 Freiwillige schließen sich einmalig an
+   (Platzhalter-Rekrutierung, wird in Meilenstein 5 ersetzt).
+2. Über die Furt zum Posten ziehen und die Wachen angreifen.
+3. **Sieg:** eigene Einheiten stehen 5 Sekunden lang im Kreis des Postens, ohne dass Gegner darin sind (Fortschrittsring, Anzeige oben links).
+   Verlassen alle eigenen Einheiten den Kreis, sinkt der Fortschritt wieder; stehen Gegner darin, pausiert er.
+4. **Niederlage:** alle eigenen Einheiten sind gefallen.
+
+Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit) stehen in `src/game/data/missions.ts`.
+
 **Steuerung**
 
 | Aktion | Eingabe |
@@ -38,7 +51,9 @@ Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). 
 | Position halten | H (Einheiten bleiben stehen und kämpfen nur in eigener Reichweite) |
 | Rückzug | R (ausgewählte Einheiten lösen sich aus dem Kampf und laufen zum Sammelpunkt, blaue Fahne) |
 | Sammelpunkt setzen | P (an die Position des Mauszeigers) |
+| Rekrutieren (Mini-Mission) | eigene Einheit in den blauen Kreis ums Dorf schicken, dann Linksklick auf das Dorf |
 | Neustart | N |
+| Testgefecht ein/aus | T (freies Gefecht aller Einheitentypen aus Meilenstein 1–3) |
 | Belastungstest mit 100 Einheiten ein/aus | B (beide Armeen greifen sofort an; FPS oben links) |
 | Werte einer Einheit anzeigen | Mauszeiger über die Einheit (oder genau eine Einheit auswählen) |
 | Kamera bewegen | W A S D oder Pfeiltasten |
@@ -90,11 +105,11 @@ src/
   main.ts             Einstiegspunkt, Phaser-Konfiguration
   scenes/             Phaser-Szenen (Boot, Mission, UI)
   game/
-    data/             Datengetriebene Definitionen (Karten, Einheitentypen, Waffen, Rüstungen, Bewegungs-, Kampf- und Steuerungskonstanten, Test- und Belastungsszenario)
+    data/             Datengetriebene Definitionen (Karten, Missionen, Einheitentypen, Waffen, Rüstungen, Bewegungs-, Kampf- und Steuerungskonstanten, Test- und Belastungsszenario)
     map/              Kacheltypen und Kartengenerator (ohne Phaser)
     camera/           Kamera-Mathematik (ohne Phaser)
     entities/         Einheitenzustand und Erzeugung der Startgruppen (ohne Phaser)
-    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf und Gegner-KI (ohne Phaser)
+    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf, Gegner-KI und Missionsregeln (ohne Phaser)
   tests/              Vitest-Tests
 ```
 

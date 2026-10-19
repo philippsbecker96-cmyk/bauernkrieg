@@ -10,7 +10,19 @@ export const GameEvents = {
   SelectionChanged: 'selection-changed',
   BattleStatus: 'battle-status',
   UnitInfo: 'unit-info',
+  MissionStatus: 'mission-status',
+  Notice: 'notice',
 } as const;
+
+/** Objective and village state of the mini mission; `null` hides the panel (test scenarios). */
+export interface MissionStatusEvent {
+  text: string | null;
+}
+
+/** Short message shown for a few seconds (e.g. result of a recruiting attempt). */
+export interface NoticeEvent {
+  text: string;
+}
 
 /** Description of the unit under the mouse pointer (or the single selected unit); `null` hides it. */
 export interface UnitInfoEvent {
@@ -21,8 +33,10 @@ export interface BattleStatusEvent {
   player: number;
   enemy: number;
   outcome: 'running' | 'victory' | 'defeat';
-  /** Name of the running scenario (test battle or 100-unit performance test). */
+  /** Name of the running scenario (mini mission, test battle or 100-unit performance test). */
   scenario: string;
+  /** Why the battle ended, shown under "Sieg!" / "Niederlage". */
+  outcomeDetail: string;
 }
 
 export interface SelectionChangedEvent {

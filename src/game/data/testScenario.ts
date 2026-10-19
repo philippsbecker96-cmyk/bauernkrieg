@@ -1,9 +1,9 @@
 import type { UnitTypeId } from './units';
 
 /**
- * Starting units for the test map (milestones 1–2). Positions are in tiles;
+ * Starting units for the test map (milestones 1–3, key T). Positions are in tiles;
  * spawns on unwalkable tiles are moved to the nearest walkable tile.
- * Replaced by real mission data from milestone 3a on.
+ * The mini mission (milestone 3a) uses its own data in `missions.ts`.
  */
 export interface UnitGroupSpawn {
   typeId: UnitTypeId;

@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { nextZoom, scrollForZoomAtPointer } from '../game/camera/cameraMath';
 import { COMBAT } from '../game/data/combat';
 import { CAMERA_CONTROLS } from '../game/data/controls';
-import { TEST_MAP } from '../game/data/maps';
+import { TEST_MAP, type MapConfig } from '../game/data/maps';
+import { MINI_MISSION, type VillageDefinition } from '../game/data/missions';
 import { MOVEMENT, SELECTION } from '../game/data/movement';
 import { getArmor } from '../game/data/armor';
 import { STRESS_SCENARIO, TEST_RALLY_POINT, TEST_SCENARIO } from '../game/data/testScenario';
@@ -27,6 +28,16 @@ import {
   type CombatEvent,
 } from '../game/systems/combat';
 import { orderGroupMove } from '../game/systems/formation';
+import {
+  buildMissionTiles,
+  checkRecruit,
+  createMissionState,
+  postPresence,
+  recruitAtVillage,
+  siteCenter,
+  stepMission,
+  type MissionState,
+} from '../game/systems/mission';
 import { stepMovement, type MovementConfig } from '../game/systems/movement';
 import {
   buildWalkGrid,
@@ -41,15 +52,21 @@ import {
   GameEvents,
   SceneKeys,
   type BattleStatusEvent,
+  type MissionStatusEvent,
+  type NoticeEvent,
   type SelectionChangedEvent,
   type TileHoverEvent,
   type UnitInfoEvent,
 } from './sceneKeys';
 
-/** Which units the scene starts with: the regular test battle or the 100-unit performance test (key B). */
-type ScenarioKind = 'test' | 'stress';
+/**
+ * What the scene plays: the mini mission (default), the free test battle of
+ * milestones 1–3 (key T) or the 100-unit performance test (key B).
+ */
+type ScenarioKind = 'mission' | 'test' | 'stress';
 
 const SCENARIO_NAMES: Record<ScenarioKind, string> = {
+  mission: MINI_MISSION.name,
   test: 'Testgefecht',
   stress: 'Belastungstest (100 Einheiten)',
 };
@@ -76,14 +93,30 @@ interface DragState {
 /** Longest simulation step (s); larger frame gaps (tab switch) are split up. */
 const MAX_STEP = 1 / 30;
 
+/** Placeholder village: house offsets (px) from the village centre. */
+const VILLAGE_HOUSES: readonly (readonly [number, number])[] = [
+  [-18, -14],
+  [16, -10],
+  [-6, 14],
+  [24, 18],
+];
+/** Half edge (px) of the square around the village centre that counts as a click on the village. */
+const VILLAGE_CLICK_HALF_SIZE = 40;
+
 /**
  * Shows the map, the units and handles input: camera (keyboard panning,
  * mouse-wheel zoom, middle-mouse drag), unit selection (click, Shift-click,
  * selection rectangle), move and attack orders (right click), hold (H),
  * retreat to the rally point (R), moving the rally point (P) and restart (N).
+ * In the mini mission it also shows the village (click: recruit) and the enemy post (capture).
  */
 export class MissionScene extends Phaser.Scene {
   private tiles: TileType[][] = [];
+  private mapConfig: MapConfig = MINI_MISSION.map;
+  /** Mission rules state; only used in the mini mission. */
+  private mission: MissionState = createMissionState();
+  private siteGraphics?: Phaser.GameObjects.Graphics;
+  private lastMissionText: string | null = null;
   private walkGrid: WalkGrid = [];
   private panKeys?: PanKeys;
   private hoverMarker?: Phaser.GameObjects.Graphics;
@@ -96,8 +129,8 @@ export class MissionScene extends Phaser.Scene {
   private drag?: DragState;
   private overlay?: Phaser.GameObjects.Graphics;
   private selectionBox?: Phaser.GameObjects.Graphics;
-  private readonly movementConfig: MovementConfig = {
-    tileSize: TEST_MAP.tileSize,
+  private movementConfig: MovementConfig = {
+    tileSize: this.mapConfig.tileSize,
     waypointReachDistance: MOVEMENT.waypointReachDistance,
     separationStrength: MOVEMENT.separationStrength,
     stuckTimeout: MOVEMENT.stuckTimeout,
@@ -106,11 +139,11 @@ export class MissionScene extends Phaser.Scene {
     lineOfSightMargin: MOVEMENT.lineOfSightMargin,
   };
   private combatConfig: CombatConfig = {
-    tileSize: TEST_MAP.tileSize,
+    tileSize: this.mapConfig.tileSize,
     ...COMBAT,
     lineOfSightMargin: MOVEMENT.lineOfSightMargin,
   };
-  private scenario: ScenarioKind = 'test';
+  private scenario: ScenarioKind = 'mission';
   private lastUnitInfo: string | null = null;
   private rallyPoint: Point = { x: 0, y: 0 };
   private outcome: BattleOutcome = 'running';
@@ -120,9 +153,11 @@ export class MissionScene extends Phaser.Scene {
   }
 
   create(data?: { scenario?: ScenarioKind }): void {
-    // The scene instance is reused on restart (N, B): reset all per-battle state.
-    this.scenario = data?.scenario ?? 'test';
+    // The scene instance is reused on restart (N, B, T): reset all per-battle state.
+    this.scenario = data?.scenario ?? 'mission';
     this.lastUnitInfo = null;
+    this.lastMissionText = null;
+    this.mission = createMissionState();
     this.units = [];
     this.sprites = new Map();
     this.selected = new Set();
@@ -130,10 +165,13 @@ export class MissionScene extends Phaser.Scene {
     this.lastHover = undefined;
     this.outcome = 'running';
 
-    const config = TEST_MAP;
-    this.tiles = generateMap(config);
+    const isMission = this.scenario === 'mission';
+    const config = isMission ? MINI_MISSION.map : TEST_MAP;
+    this.mapConfig = config;
+    this.tiles = isMission ? buildMissionTiles(MINI_MISSION) : generateMap(config);
     this.walkGrid = buildWalkGrid(this.tiles);
-    this.combatConfig = { ...this.combatConfig, coverGrid: buildCoverGrid(this.tiles) };
+    this.movementConfig = { ...this.movementConfig, tileSize: config.tileSize };
+    this.combatConfig = { ...this.combatConfig, tileSize: config.tileSize, coverGrid: buildCoverGrid(this.tiles) };
 
     const map = this.make.tilemap({
       data: this.tiles.map((row) => [...row]),
@@ -155,19 +193,22 @@ export class MissionScene extends Phaser.Scene {
     this.hoverMarker.strokeRect(0, 0, config.tileSize, config.tileSize);
     this.hoverMarker.setVisible(false);
 
+    this.siteGraphics = this.add.graphics().setDepth(1.5);
     this.overlay = this.add.graphics().setDepth(2);
     this.selectionBox = this.add.graphics().setDepth(4);
 
-    const spawns = this.scenario === 'stress' ? STRESS_SCENARIO : TEST_SCENARIO;
+    const spawns = isMission
+      ? [...MINI_MISSION.startArmy, ...MINI_MISSION.post.garrison]
+      : this.scenario === 'stress'
+        ? STRESS_SCENARIO
+        : TEST_SCENARIO;
     this.units = spawnUnits(this.walkGrid, config.tileSize, spawns, MOVEMENT.formationSpacing);
     // Performance test: both armies attack at once, so all 100 units move and fight.
     if (this.scenario === 'stress') orderGeneralAttack(this.units);
-    const rallyTile = nearestWalkableTile(this.walkGrid, { x: TEST_RALLY_POINT.tileX, y: TEST_RALLY_POINT.tileY });
+    const rally = isMission ? MINI_MISSION.rallyPoint : TEST_RALLY_POINT;
+    const rallyTile = nearestWalkableTile(this.walkGrid, { x: rally.tileX, y: rally.tileY });
     this.rallyPoint = rallyTile ? tileCenter(rallyTile, config.tileSize) : { x: 0, y: 0 };
-    for (const unit of this.units) {
-      const sprite = this.add.image(unit.x, unit.y, unitTextureKey(unit.typeId)).setDepth(3);
-      this.sprites.set(unit.id, sprite);
-    }
+    for (const unit of this.units) this.addSprite(unit);
     const firstPlayer = this.units.find((u) => u.faction === 'player');
     if (firstPlayer) camera.centerOn(firstPlayer.x + 200, firstPlayer.y);
     else camera.centerOn(map.widthInPixels / 2, map.heightInPixels / 2);
@@ -178,7 +219,19 @@ export class MissionScene extends Phaser.Scene {
     this.time.delayedCall(0, () => {
       this.emitSelection();
       this.emitBattleStatus();
+      this.emitMissionStatus();
+      if (isMission) this.notify(MINI_MISSION.briefing);
     });
+  }
+
+  private addSprite(unit: Unit): void {
+    const sprite = this.add.image(unit.x, unit.y, unitTextureKey(unit.typeId)).setDepth(3);
+    this.sprites.set(unit.id, sprite);
+  }
+
+  private notify(text: string): void {
+    const event: NoticeEvent = { text };
+    this.game.events.emit(GameEvents.Notice, event);
   }
 
   private setupInput(): void {
@@ -201,7 +254,10 @@ export class MissionScene extends Phaser.Scene {
       keyboard.on('keydown-P', () => this.setRallyPointAtPointer());
       keyboard.on('keydown-N', () => this.scene.restart({ scenario: this.scenario }));
       keyboard.on('keydown-B', () =>
-        this.scene.restart({ scenario: this.scenario === 'stress' ? 'test' : 'stress' }),
+        this.scene.restart({ scenario: this.scenario === 'stress' ? 'mission' : 'stress' }),
+      );
+      keyboard.on('keydown-T', () =>
+        this.scene.restart({ scenario: this.scenario === 'test' ? 'mission' : 'test' }),
       );
     }
 
@@ -278,9 +334,46 @@ export class MissionScene extends Phaser.Scene {
       picked = unitsInRect(this.units, rect, 'player');
     } else {
       const unit = unitAtPoint(this.units, world.x, world.y, SELECTION.clickTolerance, 'player');
+      // A click on a village (not on a unit) asks for volunteers and keeps the selection.
+      const village = unit ? undefined : this.villageAt(world.x, world.y);
+      if (village) {
+        this.tryRecruit(village);
+        return;
+      }
       picked = unit ? [unit] : [];
     }
     this.setSelection(updateSelection(this.selected, picked, additive, !drag.active));
+  }
+
+  /** Village whose clickable area (houses) contains the world point, in the mini mission only. */
+  private villageAt(x: number, y: number): VillageDefinition | undefined {
+    if (this.scenario !== 'mission') return undefined;
+    const size = this.mapConfig.tileSize;
+    return MINI_MISSION.villages.find((v) => {
+      const c = siteCenter(v, size);
+      return Math.abs(x - c.x) <= VILLAGE_CLICK_HALF_SIZE && Math.abs(y - c.y) <= VILLAGE_CLICK_HALF_SIZE;
+    });
+  }
+
+  private tryRecruit(village: VillageDefinition): void {
+    const size = this.mapConfig.tileSize;
+    const check = checkRecruit(this.mission, village, this.units, size);
+    if (check === 'alreadyRecruited') {
+      this.notify(`${village.name}: Alle Freiwilligen haben sich bereits angeschlossen.`);
+      return;
+    }
+    if (check === 'noUnitNearby') {
+      this.notify(`${village.name}: Schicke zuerst eigene Leute ins Dorf (blauer Kreis).`);
+      return;
+    }
+    const recruits = recruitAtVillage(this.mission, village, this.units, this.walkGrid, size, MOVEMENT.formationSpacing);
+    if (recruits.length === 0) return;
+    this.units.push(...recruits);
+    for (const unit of recruits) this.addSprite(unit);
+    const name = getUnitType(village.recruits.typeId).name;
+    this.notify(`${village.name}: ${recruits.length} × ${name} schließen sich dem Haufen an!`);
+    this.emitSelection();
+    this.emitBattleStatus();
   }
 
   private issueMoveOrder(worldX: number, worldY: number): void {
@@ -289,7 +382,7 @@ export class MissionScene extends Phaser.Scene {
     const result = orderGroupMove(
       group,
       this.walkGrid,
-      TEST_MAP.tileSize,
+      this.mapConfig.tileSize,
       { x: worldX, y: worldY },
       MOVEMENT.formationSpacing,
       MOVEMENT.lineOfSightMargin,
@@ -323,7 +416,7 @@ export class MissionScene extends Phaser.Scene {
     orderGroupMove(
       group,
       this.walkGrid,
-      TEST_MAP.tileSize,
+      this.mapConfig.tileSize,
       this.rallyPoint,
       MOVEMENT.formationSpacing,
       MOVEMENT.lineOfSightMargin,
@@ -335,11 +428,11 @@ export class MissionScene extends Phaser.Scene {
   private setRallyPointAtPointer(): void {
     const pointer = this.input.activePointer;
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const tile = nearestWalkableTile(this.walkGrid, worldToTile(world.x, world.y, TEST_MAP.tileSize));
+    const tile = nearestWalkableTile(this.walkGrid, worldToTile(world.x, world.y, this.mapConfig.tileSize));
     if (!tile) return;
-    const clicked = worldToTile(world.x, world.y, TEST_MAP.tileSize);
+    const clicked = worldToTile(world.x, world.y, this.mapConfig.tileSize);
     this.rallyPoint =
-      tile.x === clicked.x && tile.y === clicked.y ? { x: world.x, y: world.y } : tileCenter(tile, TEST_MAP.tileSize);
+      tile.x === clicked.x && tile.y === clicked.y ? { x: world.x, y: world.y } : tileCenter(tile, this.mapConfig.tileSize);
     this.showTargetMarker(this.rallyPoint.x, this.rallyPoint.y, 0x6fb7e8);
   }
 
@@ -380,18 +473,60 @@ export class MissionScene extends Phaser.Scene {
   }
 
   private emitBattleStatus(): void {
+    const isMission = this.scenario === 'mission';
     const event: BattleStatusEvent = {
       player: this.units.filter((u) => u.faction === 'player').length,
       enemy: this.units.filter((u) => u.faction === 'enemy').length,
       outcome: this.outcome,
       scenario: SCENARIO_NAMES[this.scenario],
+      outcomeDetail:
+        this.outcome === 'defeat'
+          ? 'Alle eigenen Einheiten sind gefallen.'
+          : isMission
+            ? `Der ${MINI_MISSION.post.name} ist eingenommen.`
+            : 'Alle Gegner sind gefallen.',
     };
     this.game.events.emit(GameEvents.BattleStatus, event);
+  }
+
+  /** Objective and village state of the mini mission for the UI (`null` hides the panel in other scenarios). */
+  private emitMissionStatus(): void {
+    let text: string | null = null;
+    if (this.scenario === 'mission') {
+      const post = MINI_MISSION.post;
+      const presence = postPresence(post, this.units, this.mapConfig.tileSize);
+      const percent = Math.floor((this.mission.captureProgress / post.captureTime) * 100);
+      const state =
+        this.mission.outcome === 'victory'
+          ? 'in eigener Hand'
+          : presence.player > 0 && presence.enemy > 0
+          ? 'umkämpft'
+          : presence.player > 0
+            ? 'wird eingenommen'
+            : presence.enemy > 0
+              ? `${presence.enemy} Wachen halten ihn`
+              : 'unbesetzt';
+      const lines = [`Ziel: ${MINI_MISSION.briefing}`, `${post.name}: ${percent} % eingenommen (${state})`];
+      for (const village of MINI_MISSION.villages) {
+        const name = getUnitType(village.recruits.typeId).name;
+        lines.push(
+          this.mission.recruitedVillages.has(village.id)
+            ? `${village.name}: Freiwillige haben sich angeschlossen`
+            : `${village.name}: ${village.recruits.count} × ${name} bereit – eigene Leute hinschicken, Dorf anklicken`,
+        );
+      }
+      text = lines.join('\n');
+    }
+    if (text === this.lastMissionText) return;
+    this.lastMissionText = text;
+    const event: MissionStatusEvent = { text };
+    this.game.events.emit(GameEvents.MissionStatus, event);
   }
 
   update(_time: number, delta: number): void {
     this.updateKeyboardPan(delta);
     this.updateUnits(delta / 1000);
+    this.drawSites();
     this.drawOverlay();
     this.drawSelectionBox();
     this.updateHover();
@@ -406,9 +541,19 @@ export class MissionScene extends Phaser.Scene {
       // After victory or defeat the fight is over; units only finish their walk.
       if (this.outcome === 'running') events.push(...stepCombat(this.units, this.walkGrid, step, this.combatConfig));
       stepMovement(this.units, this.walkGrid, step, this.movementConfig);
+      if (this.scenario === 'mission') {
+        stepMission(this.mission, MINI_MISSION.post, this.units, step, this.mapConfig.tileSize);
+      }
       remaining -= step;
     }
     if (events.length > 0) this.handleCombatEvents(events);
+    if (this.scenario === 'mission') {
+      if (this.mission.outcome !== this.outcome) {
+        this.outcome = this.mission.outcome;
+        this.emitBattleStatus();
+      }
+      this.emitMissionStatus();
+    }
     for (const unit of this.units) {
       this.sprites.get(unit.id)?.setPosition(unit.x, unit.y);
     }
@@ -440,7 +585,8 @@ export class MissionScene extends Phaser.Scene {
       }
     }
     if (!anyDeath) return;
-    this.outcome = evaluateOutcome(this.units);
+    // In the mission, `stepMission` decides (the post must be taken, not only the guards beaten).
+    if (this.scenario !== 'mission') this.outcome = evaluateOutcome(this.units);
     this.emitSelection();
     this.emitBattleStatus();
   }
@@ -488,6 +634,68 @@ export class MissionScene extends Phaser.Scene {
     g.fillStyle(color, 0.8);
     g.fillCircle(x, y, 3);
     this.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
+  }
+
+  /**
+   * Mini mission sites: village houses with the recruiting circle, the enemy post
+   * (palisade) with its capture zone, a progress ring and a flag in the colour of
+   * whoever holds it.
+   */
+  private drawSites(): void {
+    const g = this.siteGraphics;
+    if (!g) return;
+    g.clear();
+    if (this.scenario !== 'mission') return;
+    const size = this.mapConfig.tileSize;
+
+    for (const village of MINI_MISSION.villages) {
+      const c = siteCenter(village, size);
+      const recruited = this.mission.recruitedVillages.has(village.id);
+      if (!recruited) {
+        g.lineStyle(2, 0x6fb7e8, 0.6);
+        g.strokeCircle(c.x, c.y, village.recruitRadius);
+      }
+      for (const [dx, dy] of VILLAGE_HOUSES) {
+        const x = c.x + dx;
+        const y = c.y + dy;
+        g.fillStyle(0x1b1a17, 0.35);
+        g.fillRect(x - 9, y - 4, 20, 14);
+        g.fillStyle(0xd8c7a0, 1);
+        g.fillRect(x - 10, y - 6, 20, 14);
+        g.fillStyle(0x8e3b2a, 1);
+        g.fillTriangle(x - 12, y - 6, x + 12, y - 6, x, y - 16);
+        g.fillStyle(0x4a3726, 1);
+        g.fillRect(x - 2, y + 2, 4, 6);
+      }
+    }
+
+    const post = MINI_MISSION.post;
+    const c = siteCenter(post, size);
+    const r = post.captureRadius;
+    g.lineStyle(1, 0xf3e9d2, 0.35);
+    g.strokeCircle(c.x, c.y, r);
+    // Palisade: a ring of stakes inside the capture zone.
+    g.fillStyle(0x5a4128, 1);
+    const stakes = 28;
+    for (let i = 0; i < stakes; i++) {
+      if (i === stakes / 2) continue; // gate facing west
+      const a = (i / stakes) * Math.PI * 2;
+      g.fillCircle(c.x + Math.cos(a) * r * 0.7, c.y + Math.sin(a) * r * 0.7, 2.5);
+    }
+    // Capture progress ring.
+    const share = this.mission.captureProgress / post.captureTime;
+    if (share > 0) {
+      g.lineStyle(4, 0x9be37a, 0.9);
+      g.beginPath();
+      g.arc(c.x, c.y, r, -Math.PI / 2, -Math.PI / 2 + share * Math.PI * 2);
+      g.strokePath();
+    }
+    // Flag: red while the guards hold the post, the player's colour once taken.
+    const flag = this.mission.outcome === 'victory' ? 0xf3e9d2 : 0xb03a2e;
+    g.lineStyle(2, 0x1b1a17, 1);
+    g.lineBetween(c.x, c.y, c.x, c.y - 28);
+    g.fillStyle(flag, 1);
+    g.fillTriangle(c.x, c.y - 28, c.x + 16, c.y - 23, c.x, c.y - 18);
   }
 
   /**
@@ -626,7 +834,7 @@ export class MissionScene extends Phaser.Scene {
     if (!this.hoverMarker || !this.pointerInGame) return;
 
     const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const size = TEST_MAP.tileSize;
+    const size = this.mapConfig.tileSize;
     const tileX = Math.floor(world.x / size);
     const tileY = Math.floor(world.y / size);
     const type = this.tiles[tileY]?.[tileX];
