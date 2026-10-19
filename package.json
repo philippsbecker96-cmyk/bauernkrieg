@@ -1,0 +1,26 @@
+{
+  "name": "bauernkrieg",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Bauernkrieg – Aufstand der gemeinen Leute. Historisch inspiriertes 2D-Echtzeitstrategiespiel.",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}
