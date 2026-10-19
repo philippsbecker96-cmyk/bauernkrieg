@@ -150,6 +150,8 @@ Abnahmekriterien:
 
 ## Meilenstein 2 – Grundkampf
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Zwei Gruppen können sich bekämpfen und Einheiten können sterben.
 
 Aufgaben:
