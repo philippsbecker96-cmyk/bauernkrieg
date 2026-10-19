@@ -33,7 +33,12 @@ Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). 
 | Mehrere auswählen | Auswahlrahmen mit gedrückter linker Maustaste ziehen |
 | Auswahl erweitern | Umschalttaste + Klick (umschalten) oder + Rahmen (hinzufügen) |
 | Auswahl aufheben | Esc |
-| Bewegen | Rechtsklick auf das Ziel (Klick ins Wasser → nächstes Ufer) |
+| Bewegen | Rechtsklick auf das Ziel (Klick ins Wasser → nächstes Ufer); marschierende Einheiten ignorieren Gegner |
+| Angreifen | Rechtsklick auf eine gegnerische Einheit |
+| Position halten | H (Einheiten bleiben stehen und kämpfen nur in eigener Reichweite) |
+| Rückzug | R (ausgewählte Einheiten lösen sich aus dem Kampf und laufen zum Sammelpunkt, blaue Fahne) |
+| Sammelpunkt setzen | P (an die Position des Mauszeigers) |
+| Neustart | N |
 | Kamera bewegen | W A S D oder Pfeiltasten |
 | Kamera ziehen | mittlere Maustaste gedrückt halten |
 | Zoomen | Mausrad (zoomt zum Mauszeiger) |
@@ -72,11 +77,11 @@ src/
   main.ts             Einstiegspunkt, Phaser-Konfiguration
   scenes/             Phaser-Szenen (Boot, Mission, UI)
   game/
-    data/             Datengetriebene Definitionen (Karten, Einheitentypen, Bewegungs- und Steuerungskonstanten, Testszenario)
+    data/             Datengetriebene Definitionen (Karten, Einheitentypen mit Kampfwerten, Bewegungs-, Kampf- und Steuerungskonstanten, Testszenario)
     map/              Kacheltypen und Kartengenerator (ohne Phaser)
     camera/           Kamera-Mathematik (ohne Phaser)
     entities/         Einheitenzustand und Erzeugung der Startgruppen (ohne Phaser)
-    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl (ohne Phaser)
+    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl, Kampf und Gegner-KI (ohne Phaser)
   tests/              Vitest-Tests
 ```
 

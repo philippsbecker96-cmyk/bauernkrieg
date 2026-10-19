@@ -8,7 +8,14 @@ export const SceneKeys = {
 export const GameEvents = {
   TileHover: 'tile-hover',
   SelectionChanged: 'selection-changed',
+  BattleStatus: 'battle-status',
 } as const;
+
+export interface BattleStatusEvent {
+  player: number;
+  enemy: number;
+  outcome: 'running' | 'victory' | 'defeat';
+}
 
 export interface SelectionChangedEvent {
   selected: number;

@@ -32,6 +32,7 @@ export class BootScene extends Phaser.Scene {
   /**
    * Placeholder unit: filled circle with a dark outline and a small marker
    * (light for the player, a dark bar for enemies) to tell factions apart at a glance.
+   * Ranged units additionally show a small light bow across their lower half.
    */
   private createUnitTexture(type: UnitTypeDefinition): void {
     const r = type.radius;
@@ -47,6 +48,12 @@ export class BootScene extends Phaser.Scene {
     } else {
       g.fillStyle(0x1b1a17, 1);
       g.fillRect(size / 2 - r * 0.55, size / 2 - 1, r * 1.1, 2);
+    }
+    if (type.ranged) {
+      g.lineStyle(1.5, 0xf3e9d2, 1);
+      g.beginPath();
+      g.arc(size / 2, size / 2 + r * 0.2, r * 0.6, 0.15 * Math.PI, 0.85 * Math.PI);
+      g.strokePath();
     }
     g.generateTexture(unitTextureKey(type.id), size, size);
     g.destroy();

@@ -136,7 +136,7 @@ export function orderGroupMove(
 }
 
 /** Smoothed world-space path from a unit position to `destination`, or `null` if unreachable. */
-function worldPath(
+export function worldPath(
   grid: WalkGrid,
   tileSize: number,
   from: Point,
