@@ -73,7 +73,7 @@ Landsknechte sind eine wichtige, aber kostenpflichtige Truppenart. Sie untersche
 - Der Spieler muss abwägen: Landsknechte machen die Armee schlagkräftiger, verringern aber die Beute, die für Nahrung, Ausrüstung und weitere Kampagnenziele übrig bleibt.
 
 **Einfache erste Berechnungsregel**
-- Lege einen konfigurierbaren Grundanteil pro Landsknecht fest.
+- Lege eine konfigurierbare Gewichtung des Landsknecht-Anteils an der Armee fest (festgelegt am 2026-10-19, siehe Meilenstein 5).
 - Berechne den gesamten Anspruch aus Anzahl oder Anteil der Landsknechte und der Geldbeute.
 - Begrenze den Anspruch auf die tatsächlich verfügbare Beute; erzeuge keine negativen Goldbestände.
 - Die genaue Formel und die Werte werden im Prototyp getestet und balanciert.
@@ -305,6 +305,8 @@ Eindrücke zum Spielgefühl:
 
 ## Meilenstein 5 – Rekrutierung und Landsknecht-Ökonomie
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Freiwillige Bauern und kostenpflichtige Landsknechte können an Orten gewonnen werden.
 
 Aufgaben:
@@ -326,6 +328,13 @@ Abnahmekriterien:
 - Mehr Landsknechte erhöhen zuverlässig ihren gesamten Beuteanteil.
 - Der Spieler kann erkennen, ob zusätzliche Landsknechte die Kampfkraft rechtfertigen.
 - Beuteabrechnungen sind reproduzierbar, nachvollziehbar und durch Vitest-Tests abgedeckt.
+
+Festlegungen (bestätigt am 2026-10-19):
+- Zahlungsverzug: Mindestanspruch pro Landsknecht und Beuteabrechnung (Startwert 5 Gold); nicht zahlbarer Rest wird als Rückstand erfasst und gewarnt. Folgen (Moral, Abzug) in Meilenstein 8.
+- Beuteanteil nach Anteil an der Armee: Landsknechte beanspruchen `Gewichtung × Landsknechte / Armeegröße` der Gold-Beute (Startwert 1,5), höchstens die ganze Beute. Mehr Landsknechte erhöhen den Anteil, mehr Freiwillige verdünnen ihn. Ein fester Anteil pro Kopf wurde verworfen, weil er bei großen Armeen die ganze Beute verschlingt.
+- Unterstützung bis Meilenstein 6: fester Wert je Dorf in den Missionsdaten; Freiwillige = Unterstützung × Höchstzahl, unter 30 % keine. Ab Meilenstein 6 wird der Wert veränderlich.
+- Veteranen: kein eigener Einheitentyp in Meilenstein 5 (erst ab Mission 2 benötigt); Freiwilligen-Angebote kosten nie Gold (Test).
+- Mini-Mission: Hohenweiler (Unterstützung 60 %, höchstens 10 → 6 Freiwillige); neues Wirtshaus „Zum Krug“ mit 3 Landsknechten zu je 15 Gold; der Posten bringt 60 Gold und 20 Nahrung Beute (ersetzt die bisherige Siegbelohnung). Werte in `src/game/data/balance.ts` und `src/game/data/missions.ts`.
 
 ## Meilenstein 6 – Globale und lokale Unterstützung
 
