@@ -197,6 +197,8 @@ Abnahmekriterien:
 
 ## Meilenstein 3a – Mini-Mission (durchgehend spielbarer Prototyp)
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Früh prüfen, ob das Grundspiel Spaß macht. Alle folgenden Meilensteine bauen ihr System in diese Mission ein.
 
 Inhalt:
@@ -211,6 +213,15 @@ Abnahmekriterien:
 - Die Mini-Mission ist von Start bis Sieg oder Niederlage spielbar.
 - Sie ist über die öffentliche URL erreichbar.
 - Offene Eindrücke zum Spielgefühl werden kurz notiert.
+
+Festlegungen (bestätigt am 2026-10-19):
+- „Posten einnehmen“: Eigene Einheiten stehen insgesamt 5 Sekunden im Kreis des Postens, ohne dass ein Gegner darin ist. Sind Gegner im Kreis, pausiert der Fortschritt; ist keine eigene Einheit darin, sinkt er wieder. Werte in `src/game/data/missions.ts`.
+- Platzhalter-Rekrutierung: Eine eigene Einheit muss im Dorf stehen, dann Dorf anklicken; 6 Bauern schließen sich einmalig an.
+
+Eindrücke zum Spielgefühl:
+- Ablauf klar und kurz (etwa 2–3 Minuten); das Dorf ist spürbar nötig, da die 6 Start-Bauern allein verlieren.
+- Bauern gegen Wachen wirkt eher wie ein Gedränge als wie Taktik; die Furt als Engstelle spielt kaum eine Rolle, weil die Wachen am Posten warten.
+- Hilfe- und Statustexte oben links verdecken einen Teil der Karte; ein einklappbares Panel wäre sinnvoll (spätere Politur).
 
 ## Meilenstein 4 – Ressourcen und Versorgung
 
