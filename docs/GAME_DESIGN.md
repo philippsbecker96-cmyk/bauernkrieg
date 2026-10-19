@@ -1,7 +1,7 @@
 # GAME DESIGN DOCUMENT
 ## Bauernkrieg – Aufstand der gemeinen Leute
 
-**Version:** 0.5  
+**Version:** 0.6  
 **Datei:** `docs/GAME_DESIGN.md`  
 **Bezug:** `docs/IMPLEMENTATION_PLAN.md`  
 **Status:** Arbeitsgrundlage für die Entwicklung  
@@ -85,7 +85,7 @@ Die Kampagne umfasst zunächst drei bis fünf Missionen. Die Armee wächst allm�
 - Der überlebende Bauernhaufen tritt mit den über mehrere Missionen gesammelten Kämpfern und Ausrüstungsgegenständen an.
 - Die Größe und Zusammensetzung der Armee hängt von vorherigen Verlusten, Rekrutierung, Beute und Unterstützung ab.
 
-Die Missionsnamen, Ziele und Gegner sind vorläufig. Die Kampagne soll eine historisch inspirierte Geschichte erzählen, nicht behaupten, einen bestimmten historischen Verlauf exakt abzubilden. In welchen Missionen Landsknechte angeworben werden können, wird pro Mission in den Missionsdaten festgelegt.
+Die Missionsnamen, Ziele und Gegner sind vorläufig. Die Kampagne soll eine historisch inspirierte Geschichte erzählen, nicht behaupten, einen bestimmten historischen Verlauf exakt abzubilden. In welchen Missionen Landsknechte angeworben werden können, wird pro Mission in den Missionsdaten festgelegt. Ebenso wird dort festgelegt, in welcher Mission man von Thomas Müntzer erfährt (vorläufig Mission 2 oder 3, siehe 7.5).
 
 ### Größenordnung
 Als grobe Testwerte können die ersten Missionen mit etwa 10–15 Einheiten beginnen und sich im Verlauf auf etwa 50–100 Einheiten steigern. Technisches Ziel ist, dass 100 Einheiten gleichzeitig flüssig spielbar sind (siehe Abschnitt 13). Die tatsächlichen Grenzen hängen von Performance, Übersichtlichkeit und Spielgefühl ab. Diese Zahlen sind keine festen Regeln.
@@ -103,7 +103,7 @@ Als grobe Testwerte können die ersten Missionen mit etwa 10–15 Einheiten begi
 - Es soll möglich sein, sich nach Verlusten zu erholen, aber nicht ohne Aufwand. Ein einzelner schlechter Kampf soll die Kampagne möglichst nicht unwiderruflich ungewinnbar machen.
 - Der Kampagnenstand wird zwischen Missionen gespeichert (siehe Abschnitt 13).
 
-Die Einheiten müssen nicht zwingend individuelle Namen oder umfangreiche Charakterbiografien haben. Wichtig ist zunächst, dass ihre Zahl, Rolle und Ausrüstung erhalten bleiben.
+Die Einheiten müssen nicht zwingend individuelle Namen oder umfangreiche Charakterbiografien haben. Wichtig ist zunächst, dass ihre Zahl, Rolle und Ausrüstung erhalten bleiben. Eine bewusste Ausnahme sind besondere Persönlichkeiten wie Thomas Müntzer (siehe 7.5).
 
 ---
 
@@ -125,6 +125,7 @@ Nahrung ist der wichtigste begrenzende Faktor für die Größe und Stabilität d
 - Nahrung kann gekauft werden.
 - Dörfer können Nahrung freiwillig liefern.
 - Nahrung kann bei Klöstern, Burgen, Lagern und Dörfern erbeutet werden.
+- Nahrung kann im Wald gejagt werden (siehe 5.4).
 - Jede Einheit verbraucht im Zeitverlauf Nahrung.
 - Bei ausreichenden Vorräten bleibt die Armee stabil.
 - Bei knappen Vorräten wird Rekrutierung verlangsamt oder ausgesetzt und die Moral kann sinken.
@@ -148,6 +149,20 @@ Ausrüstung kommt aus:
 - freiwilligen oder gekauften Beschaffungsmöglichkeiten,
 - erbeuteten Waffen und Rüstungen,
 - Waffen, die nach Kämpfen eingesammelt werden können.
+
+### 5.4 Jagd
+Wälder sind eine zusätzliche, begrenzte Nahrungsquelle. Jagd kostet kein Gold und verärgert keine Dörfer, kostet aber Zeit, Kampfkraft und birgt Risiko.
+
+- **Jagdgruppe:** Der Spieler schickt ausgewählte Einheiten in ein Waldgebiet. Sie jagen dort eine gewisse Zeit und kehren dann zurück.
+- **Nicht verfügbar für Angriffe:** Während der Jagd stehen die Jäger nicht für eigene Angriffe zur Verfügung.
+- **Sichtbar und angreifbar:** Jäger bleiben auf der Karte sichtbar und können von Gegnern angegriffen werden. Während sie jagen, verteidigen sie sich schlechter.
+- **Waffe zählt:** Am besten jagt man mit Armbrustschützen; mit improvisierten Waffen ist der Ertrag gering.
+- **Nahrung erst bei Rückkehr:** Die erlegte Nahrung wird erst gutgeschrieben, wenn die Jäger den Rückweg schaffen und wieder in der Nähe des Haufens sind. Fallen Jäger unterwegs, geht ihr Anteil verloren.
+- **Zurückrufen:** Jäger können jederzeit zurückgerufen werden; sie bringen dann weniger oder gar keine Beute mit.
+- **Wildbestand:** Jedes Waldgebiet hat einen eigenen Wildbestand, der durch Jagd sinkt und langsam oder gar nicht nachwächst. Ein Wald kann erschöpft werden; Jagd ist keine unbegrenzte Nahrungsquelle.
+- **Wilderei:** Die Jagd war ein Vorrecht des Adels (die Zwölf Artikel von 1525 forderten freie Jagd). Jagd im Gebiet eines Herrn kann dessen Aufmerksamkeit erregen (siehe 6.4 und 11).
+
+Wildarten (z. B. Wildschwein, Reh, Hase), ihr Nahrungswert, die Höhe des Wildbestands und ob dieser fest oder zufällig bestimmt wird, stehen in den Daten und werden beim Balancing angepasst.
 
 ---
 
@@ -189,6 +204,7 @@ Der Haufen kann seine Anliegen öffentlich machen, angelehnt an historische Ford
   - *scharf/herausfordernd:* deutlich mehr lokale Unterstützung, aber der Herr wird sofort feindselig und reagiert militärisch (z. B. Verstärkung oder Gegenangriff).
 - **Begrenzung:** Nur selten möglich (z. B. einmal pro Mission oder an ein Missionsereignis gebunden), damit die Aktion kein beliebig wiederholbarer Unterstützungsgewinn wird.
 - Die Oberfläche erklärt vor der Entscheidung die zu erwartenden Folgen.
+- **Mit Thomas Müntzer im Haufen** kostet das gemäßigte Schreiben spürbar Moral, weil er widerspricht (siehe 7.5).
 
 Welche Missionen diese Aktion anbieten, wird in den Missionsdaten festgelegt.
 
@@ -251,6 +267,20 @@ Landsknechte sind eine wichtige, aber kostenpflichtige Truppenart. Sie sind bess
 - **Offene Entscheidung:** Da der Beuteanteil auf die verfügbare Beute begrenzt ist, kann aus der Beuteabrechnung allein kein Zahlungsrückstand entstehen. Es ist noch festzulegen, woraus ein Zahlungsverzug entstehen soll (z. B. aus einer laufenden Zahlung zusätzlich zur Anwerbegebühr oder aus einer Mindestzahlung pro Mission). Bis zur Entscheidung wird keine Verzugsmechanik implementiert.
 
 Keine individuellen Verträge, Soldstufen oder verschiedenen Kompanien in der ersten Version.
+
+### 7.5 Besondere Persönlichkeiten: Thomas Müntzer
+Thomas Müntzer, der radikale Prediger, der 1525 den thüringischen Haufen bei Frankenhausen anführte, kann sich dem Haufen anschließen. Er ist eine bewusste Abwägung: Er stärkt die Moral, schränkt aber die Möglichkeiten gegenüber der Obrigkeit ein.
+
+- **Begleiter, keine Kampfeinheit:** Müntzer hat keinen Kampfwert und muss nicht als Figur auf der Karte erscheinen. Er wird in der Oberfläche als Teil des Haufens angezeigt (z. B. Porträt oder Symbol).
+- **Begegnung (deterministisch):** In einer festgelegten Mission erfährt der Spieler durch eine **Flugschrift Müntzers**, die auf dem Bildschirm angezeigt wird, von ihm. Sie nennt das Dorf oder Kloster, in dem er sich aufhält; der Ort wird auf der Karte markiert.
+- **Anschluss:** Der Spieler kann, muss aber nicht, mit eigenen Einheiten dorthin ziehen und Müntzer zum Anschluss bewegen. Ablehnen oder Ignorieren ist erlaubt.
+- **Positive Wirkung:** Solange er dabei ist, ist die Moral des Haufens höher. Optional kann er die Wirkung der verkündeten Forderungen (Flugschrift, 6.4) verstärken.
+- **Negative Wirkung:** Solange er dabei ist, kostet das gemäßigte Schreiben an einen Herrn spürbar Moral, weil Müntzer widerspricht. Das scharfe Schreiben bleibt ohne diesen Aufschlag. So drängt er den Haufen zu klaren, herausfordernden Standpunkten, die militärische Gegenreaktionen auslösen können.
+- **Wegschicken:** Der Spieler kann ihn jederzeit wieder wegschicken; das kostet einmalig Moral im Haufen.
+- **Fortbestand:** Er bleibt wie die übrige Armee zwischen Missionen im Haufen und wird im Kampagnenstand gespeichert.
+- Die Oberfläche erklärt die Wirkung vor dem Anschluss und vor dem Wegschicken.
+
+Die Stärke von Moralbonus, Moralkosten und Verlust beim Wegschicken steht in den Daten und wird beim Balancing festgelegt. Die Figur ist historisch inspiriert; ihr Weg im Spiel muss nicht dem historischen Verlauf folgen.
 
 ---
 
@@ -355,6 +385,7 @@ Wichtige taktische Faktoren:
 **Gelände (festgelegt am 2026-10-19):**
 - **Wald** verlangsamt die Bewegung (Startwert: 70 % der normalen Geschwindigkeit, konfigurierbar in den Kacheldaten). Gruppen umgehen Wald, wenn der Umweg schneller ist.
 - **Deckung im Wald:** Einheiten im Wald sollen schwerer von Fernkämpfern zu treffen sein. Umsetzung erst mit dem Fernkampf der Armbrustschützen (siehe `docs/IMPLEMENTATION_PLAN.md`, Meilenstein 3); konkreter Wert wird dort balanciert.
+- **Jagd im Wald:** Wälder liefern durch Jagd Nahrung (siehe 5.4).
 
 Es muss kein komplexes Formationssystem zum Start geben. Zunächst reichen verständliche Befehle und wenige klare Waffeninteraktionen. Mehrere unabhängig befehligte Armeegruppen sind keine Voraussetzung für die erste Version; eine zweite Gruppe oder parallele Angriffswege können später ergänzt werden.
 
@@ -390,7 +421,7 @@ Gegnerverhalten für die erste Version:
 - rufen bei bestimmten Missionsbedingungen Verstärkung,
 - starten gegebenenfalls einen Gegenangriff.
 
-Die Eskalation soll mit dem Fortschritt der Kampagne zunehmen. Eine große oder erfolgreiche Rebellion kann stärkere Reaktionen der Fürsten auslösen. Auch öffentliche Forderungen und herausfordernde Schreiben (siehe 6.4) können Reaktionen auslösen. Gegner sollen nicht ständig ohne nachvollziehbaren Grund angreifen.
+Die Eskalation soll mit dem Fortschritt der Kampagne zunehmen. Eine große oder erfolgreiche Rebellion kann stärkere Reaktionen der Fürsten auslösen. Auch öffentliche Forderungen und herausfordernde Schreiben (siehe 6.4) sowie Wilderei im Gebiet eines Herrn (siehe 5.4) können Reaktionen auslösen. Gegner sollen nicht ständig ohne nachvollziehbaren Grund angreifen.
 
 ---
 
@@ -406,6 +437,7 @@ Die Oberfläche soll die wichtigsten Entscheidungen auf einen Blick ermöglichen
 - Ausrüstung ausgewählter Einheiten.
 - Missionsziele und aktueller Status.
 - Bei Beuteabrechnungen: Gesamtbeute, Landsknecht-Anteil und Spieleranteil.
+- Begleitende Persönlichkeiten (z. B. Thomas Müntzer) und ihre Wirkung.
 
 Warnungen bei drohender Desertion oder Versorgungskrise müssen früh genug angezeigt werden, damit der Spieler reagieren kann.
 
@@ -460,10 +492,12 @@ Die verbindliche Reihenfolge und die Details stehen in `docs/IMPLEMENTATION_PLAN
 4. Einheitenrollen, Waffen, Rüstung, Landsknechte als Einheit.
 5. Mini-Mission als durchgehend spielbarer Prototyp.
 6. Gold, Nahrung und Verbrauch.
+6a. Jagd im Wald als zusätzliche Nahrungsquelle.
 7. Rekrutierung und Landsknecht-Ökonomie.
 8. Globale und lokale Unterstützung.
 9. Beute und Ausrüstungswechsel.
 10. Desertion, Moral, Kampagnenübergang und Speichern.
+10a. Thomas Müntzer als Begleiter.
 11. Erste vollständige Mission.
 12. Berittene Ritter, Befestigungen, Gegnereskalation.
 13. Kampagne mit 3–5 Missionen.
@@ -497,6 +531,8 @@ Diese Punkte werden nicht vorab überkompliziert, sondern anhand eines spielbare
 - Wie viele Marschtage liegen zwischen Missionen (Startwert 3)?
 - Wie stark sinkt die Unterstützung durch verschiedene Handlungen?
 - Wie viel Unterstützung bringen Forderungen und Schreiben, und wie stark reagiert die Obrigkeit darauf?
+- Wie viel Wild hat ein Wald, wie schnell wächst es nach, und wie viel Nahrung bringen Jagd und einzelne Wildarten?
+- Wie stark hebt Thomas Müntzer die Moral, wie viel kostet mit ihm das gemäßigte Schreiben, und wie viel Moral kostet es, ihn wegzuschicken?
 - Wie viele Freiwillige kann ein Dorf bereitstellen?
 - Wie selten sind Veteranen und wie stark sind sie?
 - Wie hoch sind Anwerbegebühr und Grundanteil pro Landsknecht an der Beute?

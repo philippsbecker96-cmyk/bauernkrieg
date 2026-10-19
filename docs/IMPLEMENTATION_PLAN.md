@@ -1,7 +1,7 @@
 # IMPLEMENTATION PLAN
 ## Bauernkrieg – Aufstand der gemeinen Leute
 
-**Version:** 0.4  
+**Version:** 0.5  
 **Datei:** `docs/IMPLEMENTATION_PLAN.md`  
 **Bezug:** `docs/GAME_DESIGN.md`  
 **Ziel:** Das Spiel schrittweise zu einer vollständigen, spielbaren 2D-RTS-Kampagne mit 3–5 Missionen entwickeln.
@@ -40,6 +40,7 @@ Die verbindlichen Regeln stehen in `docs/GAME_DESIGN.md`. Dieser Abschnitt fasst
 - Keine separate Holz-, Stein-, Erz- oder Kohlewirtschaft in der ersten Version.
 - Waffen und Rüstungen sind Ausrüstung, keine abstrakte unbegrenzte Lagerressource.
 - Zeitmaßstab: 1 Spieltag = 60 Sekunden Echtzeit in der Mission; Nahrungsabzug einmal pro Spieltag; Marsch zwischen Missionen = 3 Spieltage. Alle Werte konfigurierbar.
+- **Jagd:** Wälder liefern begrenzt Nahrung durch Jagdgruppen; am besten mit Armbrustschützen. Wildbestand, Wildarten und Erträge stehen in den Daten (siehe `docs/GAME_DESIGN.md`, Abschnitt 5.4).
 
 ### 2.3 Bevölkerung und Unterstützung
 - Ein globaler Unterstützungswert und lokale Dorfzustände.
@@ -49,6 +50,7 @@ Die verbindlichen Regeln stehen in `docs/GAME_DESIGN.md`. Dieser Abschnitt fasst
 - Gewalt gegen Bewohner verursacht besonders starke negative Folgen.
 - Forderungen verkünden und Schreiben an die Obrigkeit erhöhen die Unterstützung, provozieren aber Reaktionen der Gegenseite (siehe `docs/GAME_DESIGN.md`, Abschnitt 6.4).
 - Bei anhaltender Unterversorgung oder sehr niedriger Moral können Bauern desertieren.
+- Thomas Müntzer kann sich als Begleiter ohne Kampfwert anschließen: Er hebt die Moral, verteuert aber das gemäßigte Schreiben an die Obrigkeit (siehe `docs/GAME_DESIGN.md`, Abschnitt 7.5).
 
 ### 2.4 Landsknechte – zentrale Söldnereinheit
 Die verbindlichen Regeln stehen in `docs/GAME_DESIGN.md`, Abschnitt 7.4.
@@ -252,6 +254,40 @@ Festlegungen (bestätigt am 2026-10-19):
 - Moral und Stabilität bei anhaltendem Mangel werden erst in Meilenstein 8 umgesetzt (zusammen mit der einfachen Moral der Armee).
 - Platzhalter-Rekrutierung der Mini-Mission: Freiwillige schließen sich nicht mehr nur alle auf einmal an. Ein Klick aufs Dorf holt so viele, wie die Nahrung danach noch für die Warnschwelle (Startwert 2 Tage) versorgt; Umschalt+Klick holt genau eine Person. Die übrigen bleiben im Dorf verfügbar.
 
+## Meilenstein 4a – Jagd
+
+**Ziel:** Wälder werden zu einer zusätzlichen, begrenzten Nahrungsquelle, die Zeit, Kampfkraft und Risiko kostet (siehe `docs/GAME_DESIGN.md`, Abschnitt 5.4).
+
+Aufgaben:
+- **Waldgebiete:** Zusammenhängende Waldkacheln bilden je ein Waldgebiet mit eigenem Wildbestand. Missionsdaten können Waldgebiete zusätzlich gezielt festlegen oder ihre Werte überschreiben.
+- **Jagdbefehl:** Ausgewählte Einheiten in ein Waldgebiet schicken. Sie laufen hin, jagen eine bestimmte Zeit und kehren danach selbstständig zum Haufen zurück.
+- **Während der Jagd:** Jäger bleiben sichtbar und angreifbar, verteidigen sich schlechter (Malus in den Daten) und nehmen keine Angriffsbefehle an, bis sie zurückgerufen werden oder zurück sind.
+- **Ertrag nach Waffe:** Armbrustschützen jagen deutlich erfolgreicher; Einheiten mit improvisierten Waffen bringen wenig. Die Werte stehen je Waffenklasse in den Daten.
+- **Beute tragen:** Erlegte Nahrung tragen die Jäger mit. Sie wird erst gutgeschrieben, wenn sie in der Nähe des Haufens sind (Radius um eine eigene, nicht jagende Einheit; Wert in den Daten). Fällt ein Jäger, geht sein Anteil verloren.
+- **Zurückrufen:** Jederzeit möglich; die Jäger bringen dann nur das bis dahin Erlegte mit, also weniger oder gar nichts.
+- **Wildbestand:** Jede erlegte Beute senkt den Bestand des Waldgebiets; erschöpfte Wälder liefern nichts mehr. Das Nachwachsen ist konfigurierbar (auch 0).
+- **Nahrungsverbrauch:** Jäger verbrauchen weiter Nahrung wie alle Einheiten.
+- **UI:** Grober Wildbestand eines Waldgebiets (z. B. reich / mäßig / erschöpft), Status der Jagdgruppe (unterwegs, jagt, kehrt zurück, getragene Nahrung) und Meldung bei Gutschrift oder Verlust.
+- **Wilderei vorbereiten:** Jede Jagd wird als Ereignis erfasst (wo, wie viel). Die Folge – Aufmerksamkeit des jeweiligen Herrn – wird in Meilenstein 6 umgesetzt, da es Herren und ihre Gebiete erst dort gibt.
+- In die Mini-Mission einbauen.
+
+**Konfigurierbarkeit (fortlaufend anpassbar, ohne Spielcode umzuschreiben):**
+Alle Jagdwerte stehen zentral in den Daten (z. B. `src/game/data/hunting.ts`):
+- **Wildarten:** z. B. Wildschwein, Reh, Hase – je Nahrungswert, Häufigkeit (Gewicht) und gegebenenfalls Schwierigkeit. Neue Wildarten werden nur in den Daten ergänzt.
+- **Bestandsregel:** wählbar, wie der Wildbestand eines Waldgebiets bestimmt wird – fester Wert, proportional zur Größe (Tiere pro Waldkachel) oder mit Zufallsstreuung. Zufall läuft über einen Seed, damit Missionen und Tests reproduzierbar bleiben.
+- **Nachwachsen:** Rate pro Spieltag (0 = wächst nicht nach).
+- **Jagd:** Jagddauer, Erfolgschance beziehungsweise Ertrag je Waffenklasse, maximale Traglast je Jäger, Verteidigungsmalus, Rückkehrradius.
+- **Pro Mission:** Missionsdaten können Bestandsregel und Werte einzelner Waldgebiete überschreiben.
+
+Abnahmekriterien:
+- Eine Jagdgruppe kann losgeschickt und zurückgerufen werden und kehrt selbstständig zurück.
+- Nahrung wird erst bei Rückkehr in die Nähe des Haufens gutgeschrieben; gefallene Jäger bringen nichts.
+- Armbrustschützen bringen spürbar mehr Nahrung als Bauern mit improvisierten Waffen.
+- Der Wildbestand sinkt, ein Wald kann erschöpft werden; Jagd ist keine unbegrenzte Nahrungsquelle.
+- Jäger sind auf der Karte angreifbar und stehen währenddessen nicht für Angriffe zur Verfügung.
+- Wildarten, Nahrungswerte, Bestandsregel (fest, größenabhängig, zufällig) und Nachwachsen lassen sich in den Daten ändern, ohne den Spielcode umzuschreiben.
+- Ertrag, Wildbestand, Nachwachsen, Rückruf und Gutschrift sind durch Vitest-Tests abgedeckt.
+
 ## Meilenstein 5 – Rekrutierung und Landsknecht-Ökonomie
 
 **Ziel:** Freiwillige Bauern und kostenpflichtige Landsknechte können an Orten gewonnen werden.
@@ -291,6 +327,8 @@ Aufgaben:
 - Feindselige Dörfer verweigern Hilfe oder bieten deutlich weniger Freiwillige an.
 - Unterstützungseffekte in der UI erklären.
 - Forderungen und Schreiben an die Obrigkeit (Design-Dokument 6.4): Forderungen verkünden (global) und Schreiben an einen Herrn (lokal, gemäßigt oder scharf), selten verfügbar. Die Reaktion der Gegenseite bleibt zunächst einfach (z. B. die Wachen des Postens werden verstärkt oder greifen an); vollständige Gegnereskalation folgt in Meilenstein 10.
+- Wilderei: Jagd im Gebiet eines Herrn (Ereignisse aus Meilenstein 4a) erregt dessen Aufmerksamkeit; einfache, angekündigte Reaktion wie bei den Schreiben.
+- Vorbereitung für Thomas Müntzer (Meilenstein 8a): Kosten und Verfügbarkeit der Schreiben-Optionen so umsetzen, dass sie über Bedingungen in den Daten verändert werden können (z. B. „Müntzer im Haufen → gemäßigtes Schreiben kostet Moral“), statt sie fest im Code zu verdrahten.
 - Werte zunächst mit einfachen, konfigurierbaren Regeln balancieren.
 - In die Mini-Mission einbauen (mindestens ein zweites Dorf hinzufügen).
 
@@ -345,6 +383,29 @@ Abnahmekriterien:
 - Nach Schließen und erneutem Öffnen des Browsers kann die Kampagne fortgesetzt werden.
 - Speichern und Laden des Kampagnenstands sind durch Vitest-Tests abgedeckt.
 
+## Meilenstein 8a – Thomas Müntzer als Begleiter
+
+**Ziel:** Eine besondere Persönlichkeit schafft eine bewusste Abwägung zwischen Moral und Handlungsspielraum gegenüber der Obrigkeit (siehe `docs/GAME_DESIGN.md`, Abschnitt 7.5). Setzt Moral (Meilenstein 8) und die Schreiben an die Obrigkeit (Meilenstein 6) voraus.
+
+Aufgaben:
+- **Begleiter-Modell:** Persönlichkeiten als eigenes, schlankes Datenmodell (keine Kampfeinheit, kein Kampfwert, keine Figur auf der Karte nötig). Wirkungen werden in den Daten beschrieben, damit später weitere Persönlichkeiten ohne neuen Spielcode ergänzt werden können.
+- **Flugschrift-Ereignis:** Ein in den Missionsdaten festgelegter Auslöser zeigt eine Flugschrift Müntzers auf dem Bildschirm an. Sie nennt das Dorf oder Kloster, in dem er sich aufhält; der Ort wird auf der Karte markiert.
+- **Anschluss:** Erreicht eine eigene Einheit den Ort, kann der Spieler Müntzer zum Anschluss bewegen. Vorher erklärt die UI die Wirkung. Ablehnen oder Ignorieren ist möglich.
+- **Moralbonus:** Solange Müntzer im Haufen ist, steigt die Moral (Wert in den Daten). Optionale Verstärkung der verkündeten Forderungen (Wert in den Daten, auch 0).
+- **Widerspruch:** Solange Müntzer im Haufen ist, kostet das gemäßigte Schreiben zusätzlich Moral. Die UI zeigt den Aufschlag vor der Entscheidung („Müntzer widerspricht“). Das scharfe Schreiben bleibt ohne Aufschlag.
+- **Wegschicken:** Jederzeit möglich, mit einmaligem Moralverlust; die UI warnt vorher.
+- **UI:** Müntzer erscheint als Porträt oder Symbol im HUD mit kurzer Erklärung seiner Wirkung.
+- **Kampagne und Speichern:** Begleiter werden in den Kampagnenstand übernommen und mit gespeichert (Erweiterung des Speicherformats aus Meilenstein 8, Versionsnummer beachten).
+- In die Mini-Mission einbauen (Flugschrift erscheint, Müntzer hält sich in einem der Dörfer auf).
+
+Abnahmekriterien:
+- Die Flugschrift erscheint zuverlässig beim festgelegten Auslöser und nennt einen erreichbaren Ort.
+- Müntzer kann sich anschließen und wieder weggeschickt werden; beides hat die angekündigte Moralwirkung.
+- Mit Müntzer kostet das gemäßigte Schreiben sichtbar mehr; ohne ihn nicht.
+- Müntzer bleibt nach dem Kampagnenübergang und nach dem Neuladen im Haufen.
+- Moralbonus, Schreiben-Aufschlag und Verlust beim Wegschicken lassen sich in den Daten ändern, ohne den Spielcode umzuschreiben.
+- Die Wirkungen auf Moral und Schreiben sind durch Vitest-Tests abgedeckt.
+
 ## Meilenstein 9 – Erste vollständige Mission
 
 **Ziel:** Die Mini-Mission aus Meilenstein 3a wird zur ersten vollständigen Mission (Mission 1 laut Design-Dokument) ausgebaut.
@@ -394,6 +455,7 @@ Aufgaben:
 - Kampagnenübergänge und fortbestehende Armee testen.
 - Missionsspezifische Vorräte, Gegner, Orte und Ziele konfigurieren.
 - Seltene Veteranen, Landsknechte und Ausrüstungsfunde an passenden Stellen anbieten.
+- Thomas Müntzers Flugschrift in einer passenden Kampagnenmission platzieren (vorläufig Mission 2 oder 3).
 - Sicherstellen, dass Verluste bedeutsam sind, aber die Kampagne nicht leicht in eine Sackgasse führen.
 - Einfachen Kampagnenabschluss und Niederlagenzustände umsetzen.
 
