@@ -1,7 +1,7 @@
 # GAME DESIGN DOCUMENT
 ## Bauernkrieg – Aufstand der gemeinen Leute
 
-**Version:** 0.4  
+**Version:** 0.5  
 **Datei:** `docs/GAME_DESIGN.md`  
 **Bezug:** `docs/IMPLEMENTATION_PLAN.md`  
 **Status:** Arbeitsgrundlage für die Entwicklung  
@@ -179,6 +179,18 @@ Mögliche Handlungen gegenüber einem Dorf:
 - **Plünderung und Gewalt gegen Bewohner:** Kann größere kurzfristige Beute bringen, führt aber zu starken langfristigen Nachteilen.
 
 Die Bevölkerung soll nicht rein dekorativ sein. Die Folgen von Handlungen müssen auf der Karte und in der Rekrutierung spürbar werden. Die genaue Abstufung wird im Balancing festgelegt.
+
+### 6.4 Forderungen und Schreiben an die Obrigkeit
+Der Haufen kann seine Anliegen öffentlich machen, angelehnt an historische Forderungsschriften wie die Zwölf Artikel von 1525. Das ist eine einfache, begrenzte Aktion, kein Diplomatiesystem.
+
+- **Forderungen verkünden (Flugschrift):** Erhöht die globale Unterstützung. Die Obrigkeit wird dadurch aufmerksam und reagiert früher oder stärker (siehe Abschnitt 11).
+- **Schreiben an einen bestimmten Herrn:** Wirkt auf die Dörfer in dessen Gebiet. Zwei Tonlagen:
+  - *gemäßigt:* etwas mehr lokale Unterstützung, gegebenenfalls ein kleines Zugeständnis oder eine kurze Ruhe vor Gegenmaßnahmen;
+  - *scharf/herausfordernd:* deutlich mehr lokale Unterstützung, aber der Herr wird sofort feindselig und reagiert militärisch (z. B. Verstärkung oder Gegenangriff).
+- **Begrenzung:** Nur selten möglich (z. B. einmal pro Mission oder an ein Missionsereignis gebunden), damit die Aktion kein beliebig wiederholbarer Unterstützungsgewinn wird.
+- Die Oberfläche erklärt vor der Entscheidung die zu erwartenden Folgen.
+
+Welche Missionen diese Aktion anbieten, wird in den Missionsdaten festgelegt.
 
 ---
 
@@ -378,7 +390,7 @@ Gegnerverhalten für die erste Version:
 - rufen bei bestimmten Missionsbedingungen Verstärkung,
 - starten gegebenenfalls einen Gegenangriff.
 
-Die Eskalation soll mit dem Fortschritt der Kampagne zunehmen. Eine große oder erfolgreiche Rebellion kann stärkere Reaktionen der Fürsten auslösen. Gegner sollen nicht ständig ohne nachvollziehbaren Grund angreifen.
+Die Eskalation soll mit dem Fortschritt der Kampagne zunehmen. Eine große oder erfolgreiche Rebellion kann stärkere Reaktionen der Fürsten auslösen. Auch öffentliche Forderungen und herausfordernde Schreiben (siehe 6.4) können Reaktionen auslösen. Gegner sollen nicht ständig ohne nachvollziehbaren Grund angreifen.
 
 ---
 
@@ -484,6 +496,7 @@ Diese Punkte werden nicht vorab überkompliziert, sondern anhand eines spielbare
 - Wie lang soll ein Spieltag in Echtzeit sein (Startwert 60 Sekunden)?
 - Wie viele Marschtage liegen zwischen Missionen (Startwert 3)?
 - Wie stark sinkt die Unterstützung durch verschiedene Handlungen?
+- Wie viel Unterstützung bringen Forderungen und Schreiben, und wie stark reagiert die Obrigkeit darauf?
 - Wie viele Freiwillige kann ein Dorf bereitstellen?
 - Wie selten sind Veteranen und wie stark sind sie?
 - Wie hoch sind Anwerbegebühr und Grundanteil pro Landsknecht an der Beute?

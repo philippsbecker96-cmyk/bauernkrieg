@@ -1,7 +1,7 @@
 # IMPLEMENTATION PLAN
 ## Bauernkrieg – Aufstand der gemeinen Leute
 
-**Version:** 0.3  
+**Version:** 0.4  
 **Datei:** `docs/IMPLEMENTATION_PLAN.md`  
 **Bezug:** `docs/GAME_DESIGN.md`  
 **Ziel:** Das Spiel schrittweise zu einer vollständigen, spielbaren 2D-RTS-Kampagne mit 3–5 Missionen entwickeln.
@@ -47,6 +47,7 @@ Die verbindlichen Regeln stehen in `docs/GAME_DESIGN.md`. Dieser Abschnitt fasst
 - Schutz und respektvoller Umgang können Unterstützung verbessern.
 - Erzwungene Abgaben und Plünderungen liefern kurzfristige Ressourcen, senken aber lokale Unterstützung.
 - Gewalt gegen Bewohner verursacht besonders starke negative Folgen.
+- Forderungen verkünden und Schreiben an die Obrigkeit erhöhen die Unterstützung, provozieren aber Reaktionen der Gegenseite (siehe `docs/GAME_DESIGN.md`, Abschnitt 6.4).
 - Bei anhaltender Unterversorgung oder sehr niedriger Moral können Bauern desertieren.
 
 ### 2.4 Landsknechte – zentrale Söldnereinheit
@@ -283,6 +284,7 @@ Aufgaben:
 - Unterstützung beeinflusst Anzahl verfügbarer Freiwilliger.
 - Feindselige Dörfer verweigern Hilfe oder bieten deutlich weniger Freiwillige an.
 - Unterstützungseffekte in der UI erklären.
+- Forderungen und Schreiben an die Obrigkeit (Design-Dokument 6.4): Forderungen verkünden (global) und Schreiben an einen Herrn (lokal, gemäßigt oder scharf), selten verfügbar. Die Reaktion der Gegenseite bleibt zunächst einfach (z. B. die Wachen des Postens werden verstärkt oder greifen an); vollständige Gegnereskalation folgt in Meilenstein 10.
 - Werte zunächst mit einfachen, konfigurierbaren Regeln balancieren.
 - In die Mini-Mission einbauen (mindestens ein zweites Dorf hinzufügen).
 
@@ -290,6 +292,7 @@ Abnahmekriterien:
 - Zwei Dörfer können unterschiedlich auf den Spieler reagieren.
 - Plünderung bringt einen kurzfristigen Vorteil und einen spürbaren langfristigen Nachteil.
 - Schutz oder Unterstützung kann die lokale Haltung verbessern.
+- Ein Schreiben an die Obrigkeit erhöht die Unterstützung und löst eine erkennbare Gegenreaktion aus; es ist nicht beliebig wiederholbar.
 - Der Spieler kann die Folgen einer Handlung verstehen.
 - Unterstützungsänderungen sind durch Vitest-Tests abgedeckt.
 
