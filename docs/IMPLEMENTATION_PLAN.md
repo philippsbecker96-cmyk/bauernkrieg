@@ -226,6 +226,8 @@ Eindrücke zum Spielgefühl:
 
 ## Meilenstein 4 – Ressourcen und Versorgung
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Gold und Nahrung beeinflussen die Armeegröße und Kampagnenentscheidungen.
 
 Aufgaben:
