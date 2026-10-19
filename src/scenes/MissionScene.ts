@@ -6,10 +6,10 @@ import { TEST_MAP, type MapConfig } from '../game/data/maps';
 import { MINI_MISSION, type VillageDefinition } from '../game/data/missions';
 import { MOVEMENT, SELECTION } from '../game/data/movement';
 import { getArmor } from '../game/data/armor';
-import { SUPPLY } from '../game/data/balance';
+import { LANDSKNECHT, SUPPLY } from '../game/data/balance';
 import { HUNTING } from '../game/data/hunting';
 import { STRESS_SCENARIO, TEST_RALLY_POINT, TEST_SCENARIO } from '../game/data/testScenario';
-import { getUnitType } from '../game/data/units';
+import { getUnitType, type UnitTypeId } from '../game/data/units';
 import { getWeapon, type WeaponDefinition } from '../game/data/weapons';
 import { finalWaypoint, isMoving, type Point, type Unit } from '../game/entities/Unit';
 import { spawnUnits } from '../game/entities/UnitFactory';
@@ -50,17 +50,23 @@ import {
   buildMissionTiles,
   buyFoodAtVillage,
   checkFoodPurchase,
+  checkHire,
   checkRecruit,
-  claimVictoryReward,
   createMissionState,
+  hireMercenary,
+  landsknechtCount,
+  mercenariesLeft,
   postPresence,
+  previewPostLoot,
   recruitableNow,
   recruitAtVillage,
+  settlePostLoot,
   siteCenter,
   stepMission,
   volunteersLeft,
   type MissionState,
 } from '../game/systems/mission';
+import type { LootSettlement } from '../game/systems/loot';
 import {
   dailyConsumption,
   secondsUntilNextDay,
@@ -147,7 +153,8 @@ const HUNT_PHASE_NAMES: Record<HuntPhase, string> = {
  * mouse-wheel zoom, middle-mouse drag), unit selection (click, Shift-click,
  * selection rectangle), move and attack orders (right click), hold (H),
  * retreat to the rally point (R), moving the rally point (P) and restart (N).
- * In the mini mission it also shows the village (click: recruit) and the enemy post (capture).
+ * In the mini mission it also shows the village (click: recruit volunteers), the tavern
+ * (click: hire a Landsknecht) and the enemy post (capture, loot settlement).
  */
 export class MissionScene extends Phaser.Scene {
   private tiles: TileType[][] = [];
@@ -402,10 +409,12 @@ export class MissionScene extends Phaser.Scene {
       picked = unitsInRect(this.units, rect, 'player');
     } else {
       const unit = unitAtPoint(this.units, world.x, world.y, SELECTION.clickTolerance, 'player');
-      // A click on a village (not on a unit) asks for volunteers and keeps the selection.
+      // A click on a place (not on a unit) asks for volunteers or hires a Landsknecht and keeps the selection.
       const village = unit ? undefined : this.villageAt(world.x, world.y);
       if (village) {
-        this.tryRecruit(village, additive);
+        if (village.volunteers && volunteersLeft(this.mission, village) > 0) this.tryRecruit(village, additive);
+        else if (village.mercenaries) this.tryHire(village);
+        else this.tryRecruit(village, additive);
         return;
       }
       picked = unit ? [unit] : [];
@@ -423,7 +432,7 @@ export class MissionScene extends Phaser.Scene {
     });
   }
 
-  /** Click on a village: as many volunteers join as the food sustains; with Shift only one. */
+  /** Click on a village: as many volunteers join (free of charge) as the food sustains; with Shift only one. */
   private tryRecruit(village: VillageDefinition, onlyOne: boolean): void {
     const size = this.mapConfig.tileSize;
     const check = checkRecruit(this.mission, village, this.units, size, SUPPLY);
@@ -438,7 +447,11 @@ export class MissionScene extends Phaser.Scene {
       return;
     }
     if (check === 'noVolunteersLeft') {
-      this.notify(`${village.name}: Alle Freiwilligen haben sich bereits angeschlossen.`);
+      this.notify(
+        village.volunteers
+          ? `${village.name}: Alle Freiwilligen haben sich bereits angeschlossen.`
+          : `${village.name}: Hier schließt sich niemand freiwillig an.`,
+      );
       return;
     }
     if (check === 'noUnitNearby') {
@@ -458,7 +471,7 @@ export class MissionScene extends Phaser.Scene {
     if (recruits.length === 0) return;
     this.units.push(...recruits);
     for (const unit of recruits) this.addSprite(unit);
-    const name = getUnitType(village.recruits.typeId).name;
+    const name = getUnitType(recruits[0]!.typeId).name;
     const left = volunteersLeft(this.mission, village);
     const rest =
       left === 0
@@ -469,6 +482,47 @@ export class MissionScene extends Phaser.Scene {
     this.notify(`${village.name}: ${recruits.length} × ${name} schließen sich dem Haufen an!${rest}`);
     this.emitSelection();
     this.emitBattleStatus();
+  }
+
+  /** Click on a place with mercenaries: hires one Landsknecht for its fee in gold. */
+  private tryHire(village: VillageDefinition): void {
+    const offer = village.mercenaries;
+    if (!offer) return;
+    const size = this.mapConfig.tileSize;
+    const check = checkHire(this.mission, village, this.units, size, SUPPLY);
+    const name = getUnitType(offer.typeId).name;
+    if (check === 'noMercenariesLeft') {
+      this.notify(`${village.name}: Hier sind keine ${name}e mehr anzuwerben.`);
+      return;
+    }
+    if (check === 'noUnitNearby') {
+      this.notify(`${village.name}: Schicke zuerst eigene Leute hin (blauer Kreis).`);
+      return;
+    }
+    if (check === 'notEnoughFood') {
+      this.notify(
+        `${village.name}: Zu wenig Nahrung für einen weiteren Mann ` +
+          `(Vorrat muss danach noch ${SUPPLY.lowSupplyDays} Tage reichen). Erst Nahrung beschaffen.`,
+      );
+      return;
+    }
+    if (check === 'notEnoughGold') {
+      this.notify(`${village.name}: Zu wenig Gold – ein ${name} verlangt ${offer.fee} Gold Anwerbegebühr.`);
+      return;
+    }
+    const unit = hireMercenary(this.mission, village, this.units, this.walkGrid, size, MOVEMENT.formationSpacing, SUPPLY);
+    if (!unit) return;
+    this.units.push(unit);
+    this.addSprite(unit);
+    const count = landsknechtCount(this.units, LANDSKNECHT);
+    const share = Math.round(previewPostLoot(this.mission, MINI_MISSION.post, this.units, LANDSKNECHT).shareRate * 100);
+    this.notify(
+      `${village.name}: Ein ${name} lässt sich für ${offer.fee} Gold anwerben. ` +
+        `${count} ${name}e beanspruchen nun ${share} % der Gold-Beute.`,
+    );
+    this.emitSelection();
+    this.emitBattleStatus();
+    this.emitSupplyStatus();
   }
 
   /** Key F: buys one lot of food at a village where own units stand (mini mission only). */
@@ -670,9 +724,7 @@ export class MissionScene extends Phaser.Scene {
           ? 'Alle eigenen Einheiten sind gefallen.'
           : isMission
             ? `Der ${MINI_MISSION.post.name} ist eingenommen.` +
-              (this.mission.rewardClaimed
-                ? `\nBelohnung: +${MINI_MISSION.reward.gold} Gold, +${MINI_MISSION.reward.food} Nahrung`
-                : '')
+              (this.mission.lootSettlement ? `\n${lootSettlementText(this.mission.lootSettlement)}` : '')
             : 'Alle Gegner sind gefallen.',
     };
     this.game.events.emit(GameEvents.BattleStatus, event);
@@ -697,15 +749,29 @@ export class MissionScene extends Phaser.Scene {
               : 'unbesetzt';
       const lines = [`Ziel: ${MINI_MISSION.briefing}`, `${post.name}: ${percent} % eingenommen (${state})`];
       for (const village of MINI_MISSION.villages) {
-        const name = getUnitType(village.recruits.typeId).name;
-        const left = volunteersLeft(this.mission, village);
-        const feedable = recruitableNow(this.mission, village, this.units, SUPPLY);
-        lines.push(
-          left === 0
-            ? `${village.name}: Alle Freiwilligen haben sich angeschlossen`
-            : `${village.name}: ${left} × ${name} bereit, Nahrung reicht für ${feedable} – ` +
-                'Dorf anklicken (Umschalt+Klick: nur einer)',
-        );
+        if (village.volunteers) {
+          const name = getUnitType(village.volunteers.typeId).name;
+          const left = volunteersLeft(this.mission, village);
+          const feedable = recruitableNow(this.mission, village, this.units, SUPPLY);
+          const support = `Unterstützung ${village.support ?? 0} %`;
+          lines.push(
+            left === 0
+              ? `${village.name} (${support}): Keine Freiwilligen (mehr)`
+              : `${village.name} (${support}): ${left} × ${name} bereit (ohne Gold), Nahrung reicht für ${feedable} – ` +
+                  'Dorf anklicken (Umschalt+Klick: nur einer)',
+          );
+        }
+        const offer = village.mercenaries;
+        if (offer) {
+          const name = getUnitType(offer.typeId).name;
+          const left = mercenariesLeft(this.mission, village);
+          lines.push(
+            left === 0
+              ? `${village.name}: Keine ${name}e mehr anzuwerben`
+              : `${village.name}: ${left} × ${name} anzuwerben, je ${offer.fee} Gold – anklicken (einer pro Klick)`,
+            `  ${unitComparisonText(offer.typeId)}`,
+          );
+        }
         const market = village.foodMarket;
         if (market) {
           const stock = this.mission.foodStock.get(village.id) ?? 0;
@@ -716,6 +782,7 @@ export class MissionScene extends Phaser.Scene {
           );
         }
       }
+      lines.push(...this.lootStatusLines());
       lines.push(...this.huntingStatusLines());
       text = lines.join('\n');
     }
@@ -723,6 +790,22 @@ export class MissionScene extends Phaser.Scene {
     this.lastMissionText = text;
     const event: MissionStatusEvent = { text };
     this.game.events.emit(GameEvents.MissionStatus, event);
+  }
+
+  /**
+   * Expected loot of the post and the Landsknecht share now and with one more Landsknecht,
+   * so the player can weigh their fighting power against their share (GDD 7.4, 12).
+   */
+  private lootStatusLines(): string[] {
+    const post = MINI_MISSION.post;
+    if (this.mission.lootSettlement) return [];
+    const now = previewPostLoot(this.mission, post, this.units, LANDSKNECHT);
+    const more = previewPostLoot(this.mission, post, this.units, LANDSKNECHT, 1);
+    return [
+      `Beute ${post.name}: ${now.totalGold} Gold, ${now.food} Nahrung`,
+      `  Landsknecht-Anteil: ${now.landsknechte} Landsknecht(e) → ${now.claim} Gold, dir bleiben ${now.playerShare}` +
+        ` · mit einem mehr: ${more.claim} Gold, dir bleiben ${more.playerShare}`,
+    ];
   }
 
   /** Hunting party summary for the mission panel: who is where and how much food they carry. */
@@ -815,6 +898,8 @@ export class MissionScene extends Phaser.Scene {
       const lines = [
         `Tag ${supply.day} · ${clock}`,
         `Gold: ${supply.gold} · Nahrung: ${supply.food}`,
+        `Landsknechte: ${landsknechtCount(this.units, LANDSKNECHT)}` +
+          (this.mission.landsknechtArrears > 0 ? ` · Rückstand: ${this.mission.landsknechtArrears} Gold` : ''),
         `Verbrauch: ${dailyConsumption(army, SUPPLY)} Nahrung/Tag (${army} × ${SUPPLY.foodPerUnitPerDay})`,
         `Nahrung reicht für ca. ${daysText} Tage`,
       ];
@@ -822,6 +907,9 @@ export class MissionScene extends Phaser.Scene {
         lines.push(`Warnung: Vorräte knapp (unter ${SUPPLY.lowSupplyDays} Tagen) – Nahrung kaufen!`);
       } else if (level === 'shortage') {
         lines.push(`Warnung: Der Haufen hungert seit ${supply.shortageDays} Tag(en)!`, 'Keine neuen Freiwilligen, bis wieder Nahrung da ist.');
+      }
+      if (this.mission.landsknechtArrears > 0) {
+        lines.push(`Warnung: Die Landsknechte warten auf ${this.mission.landsknechtArrears} Gold!`);
       }
       text = lines.join('\n');
     }
@@ -892,7 +980,10 @@ export class MissionScene extends Phaser.Scene {
     if (this.scenario === 'mission') {
       if (this.mission.outcome !== this.outcome) {
         this.outcome = this.mission.outcome;
-        claimVictoryReward(this.mission, MINI_MISSION);
+        const settlement = settlePostLoot(this.mission, MINI_MISSION.post, this.units, LANDSKNECHT);
+        if (settlement?.arrears) {
+          this.notify(`Warnung: Den Landsknechten fehlen ${settlement.arrears} Gold – der Rückstand bleibt offen!`);
+        }
         this.emitBattleStatus();
       }
       this.reportDays(days);
@@ -999,10 +1090,16 @@ export class MissionScene extends Phaser.Scene {
       const c = siteCenter(village, size);
       // The circle marks where own units must stand to recruit or buy food.
       const active =
-        volunteersLeft(this.mission, village) > 0 || (this.mission.foodStock.get(village.id) ?? 0) > 0;
+        volunteersLeft(this.mission, village) > 0 ||
+        mercenariesLeft(this.mission, village) > 0 ||
+        (this.mission.foodStock.get(village.id) ?? 0) > 0;
       if (active) {
         g.lineStyle(2, 0x6fb7e8, 0.6);
         g.strokeCircle(c.x, c.y, village.recruitRadius);
+      }
+      if (village.kind === 'tavern') {
+        this.drawTavern(g, c);
+        continue;
       }
       for (const [dx, dy] of VILLAGE_HOUSES) {
         const x = c.x + dx;
@@ -1045,6 +1142,23 @@ export class MissionScene extends Phaser.Scene {
     g.lineBetween(c.x, c.y, c.x, c.y - 28);
     g.fillStyle(flag, 1);
     g.fillTriangle(c.x, c.y - 28, c.x + 16, c.y - 23, c.x, c.y - 18);
+  }
+
+  /** Tavern: one large house with a hanging sign (jug) in the Landsknecht colour. */
+  private drawTavern(g: Phaser.GameObjects.Graphics, c: Point): void {
+    g.fillStyle(0x1b1a17, 0.35);
+    g.fillRect(c.x - 19, c.y - 6, 40, 22);
+    g.fillStyle(0xcdb58a, 1);
+    g.fillRect(c.x - 20, c.y - 8, 40, 22);
+    g.fillStyle(0x6b2f22, 1);
+    g.fillTriangle(c.x - 24, c.y - 8, c.x + 24, c.y - 8, c.x, c.y - 26);
+    g.fillStyle(0x4a3726, 1);
+    g.fillRect(c.x - 3, c.y + 4, 7, 10);
+    // Sign on a bracket to the right of the door.
+    g.lineStyle(2, 0x4a3726, 1);
+    g.lineBetween(c.x + 20, c.y - 2, c.x + 30, c.y - 2);
+    g.fillStyle(0xe0a030, 1);
+    g.fillRect(c.x + 24, c.y, 10, 9);
   }
 
   /**
@@ -1225,4 +1339,28 @@ export class MissionScene extends Phaser.Scene {
     const event: TileHoverEvent = { tileX, tileY, tileName };
     this.game.events.emit(GameEvents.TileHover, event);
   }
+}
+
+/** Gold of a loot settlement as shown to the player: total, Landsknecht share, player share (GDD 12). */
+function lootSettlementText(s: LootSettlement): string {
+  const lines = [
+    `Beute: ${s.totalGold} Gold · an die Landsknechte: ${s.claim - s.arrears} · dir bleiben: ${s.playerShare}` +
+      (s.paidFromTreasury > 0 ? ` (dazu ${s.paidFromTreasury} aus der Kasse)` : ''),
+  ];
+  if (s.food > 0) lines.push(`+${s.food} Nahrung`);
+  if (s.arrears > 0) lines.push(`Rückstand bei den Landsknechten: ${s.arrears} Gold`);
+  return lines.join('\n');
+}
+
+/** Base values of a hireable unit next to a plain peasant, so its fighting power can be weighed. */
+function unitComparisonText(typeId: UnitTypeId): string {
+  const describe = (id: UnitTypeId) => {
+    const type = getUnitType(id);
+    const armor = getArmor(type.equipment.armor);
+    return (
+      `${type.maxHp} LP, ${getWeapon(type.equipment.weapon).name.split(' (')[0]}, Schutz ${Math.round(armor.protection * 100)} %, ` +
+      `Training ×${String(type.attack).replace('.', ',')}, Parade ${Math.round(type.defense * 100)} %`
+    );
+  };
+  return `${getUnitType(typeId).name}: ${describe(typeId)} – Bauer zum Vergleich: ${describe('peasant')}`;
 }

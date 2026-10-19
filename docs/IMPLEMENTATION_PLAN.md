@@ -86,8 +86,8 @@ Ein mögliches, nur vorläufiges Balancing-Modell ist:
 
 Die Formel soll so gestaltet sein, dass ein größerer Landsknecht-Anteil zuverlässig einen höheren Gesamtanteil an der Beute bedeutet. Konkrete Prozentwerte werden erst nach Tests festgelegt.
 
-**Zahlungsverzug – offene Entscheidung**
-Laut Design-Dokument können Landsknechte bei Zahlungsverzug unzufrieden werden oder die Armee verlassen. Da der Beuteanteil auf die verfügbare Beute begrenzt ist, kann aus der Beuteabrechnung allein kein Rückstand entstehen. Woraus ein Zahlungsverzug entsteht, ist noch nicht entschieden (siehe `docs/GAME_DESIGN.md`, Abschnitt 16). Bis zur Entscheidung wird keine Verzugsmechanik implementiert.
+**Zahlungsverzug (entschieden am 2026-10-19)**
+Ein Rückstand entsteht aus einem konfigurierbaren **Mindestanspruch pro Landsknecht und Beuteabrechnung** (siehe `docs/GAME_DESIGN.md`, Abschnitt 7.4). Fällig ist der höhere Wert aus Beuteanteil und Mindestanspruch zuzüglich eines offenen Rückstands; gezahlt wird zuerst aus der Beute, dann aus der Kasse, der Rest wird als Rückstand erfasst und angezeigt. Meilenstein 5 erfasst den Rückstand und warnt; Moral- und Abzugsfolgen kommen in Meilenstein 8.
 
 ### 2.5 Waffen und Ausrüstung
 - Jede Einheit trägt ihre eigene Waffe und gegebenenfalls Rüstung.
@@ -318,7 +318,7 @@ Aufgaben:
 - Beuteabrechnung zunächst bei der Einnahme eines gegnerischen Ortes (z. B. des Postens der Mini-Mission); die Plünderung von Dörfern folgt in Meilenstein 6 und nutzt dieselbe Abrechnung.
 - Der UI-Text zeigt Gesamtbeute, Landsknecht-Anteil und verbleibenden Spieleranteil.
 - Gold wird durch die Beuteabrechnung nie negativ.
-- Keine Mechanik für Zahlungsverzug, solange die offene Entscheidung (Abschnitt 2.4) nicht getroffen ist.
+- Zahlungsverzug (Abschnitt 2.4): Mindestanspruch pro Landsknecht in der Beuteabrechnung; nicht zahlbarer Rest wird als Rückstand erfasst und gewarnt. Keine Moral- oder Abzugsfolgen vor Meilenstein 8.
 
 Abnahmekriterien:
 - Bauern können über Unterstützung rekrutiert werden, ohne dass Gold pro Kopf bezahlt wird.
@@ -382,7 +382,7 @@ Aufgaben:
 - Einfache Moral/Stabilität für die Armee.
 - Warnung vor drohender Desertion.
 - Bei anhaltender Nahrungsknappheit verlassen Bauern die Armee.
-- Unzufriedenheit oder Abzug von Landsknechten bei Zahlungsverzug nur, falls die offene Entscheidung (Abschnitt 2.4) bis dahin getroffen ist.
+- Unzufriedenheit oder Abzug von Landsknechten bei Zahlungsrückstand (Rückstand aus dem Mindestanspruch, Abschnitt 2.4), immer mit vorheriger Warnung.
 - Keine plötzliche Desertion ohne vorherige verständliche Warnung.
 - Übergabe der überlebenden Einheiten, Ausrüstung, Ressourcen und relevanten Unterstützungszustände an die nächste Mission.
 - Gefallene Einheiten bleiben verloren.
@@ -617,6 +617,6 @@ Ein Meilenstein gilt nur dann als abgeschlossen, wenn:
 
 ## 8. Offene Entscheidungen
 
-- **Zahlungsverzug der Landsknechte:** siehe Abschnitt 2.4 und `docs/GAME_DESIGN.md`, Abschnitt 16.
+- Derzeit keine. (Zahlungsverzug der Landsknechte entschieden am 2026-10-19, siehe Abschnitt 2.4.)
 
 **Leitregel:** Ein kleiner, getesteter und spielbarer Fortschritt ist wertvoller als viele nur teilweise implementierte Mechaniken.

@@ -273,7 +273,8 @@ Landsknechte sind eine wichtige, aber kostenpflichtige Truppenart. Sie sind bess
 **Zahlungsverzug**
 - Kann ein vereinbarter Anteil nicht gezahlt werden, sinkt die Moral der Landsknechte.
 - Bei längerem Verzug können sie unzuverlässig werden oder die Armee verlassen – immer mit vorheriger, klarer Warnung.
-- **Offene Entscheidung:** Da der Beuteanteil auf die verfügbare Beute begrenzt ist, kann aus der Beuteabrechnung allein kein Zahlungsrückstand entstehen. Es ist noch festzulegen, woraus ein Zahlungsverzug entstehen soll (z. B. aus einer laufenden Zahlung zusätzlich zur Anwerbegebühr oder aus einer Mindestzahlung pro Mission). Bis zur Entscheidung wird keine Verzugsmechanik implementiert.
+- **Entstehung des Rückstands (festgelegt am 2026-10-19): Mindestanspruch pro Beuteabrechnung.** Jeder lebende Landsknecht hat bei jeder Beuteabrechnung einen Mindestanspruch in Gold (konfigurierbar). Fällig ist der höhere Wert aus Beuteanteil und Mindestanspruch, dazu ein offener Rückstand aus früheren Abrechnungen. Gezahlt wird zuerst aus der Beute, dann aus der Kasse; was nicht gezahlt werden kann, wird als Rückstand erfasst und klar angezeigt. Gold wird nie negativ. Ohne lebende Landsknechte verfällt ein Rückstand.
+- Die Folgen eines Rückstands (Moral, Unzuverlässigkeit, Abzug) werden mit Moral und Desertion umgesetzt (siehe `docs/IMPLEMENTATION_PLAN.md`, Meilenstein 8).
 
 Keine individuellen Verträge, Soldstufen oder verschiedenen Kompanien in der ersten Version.
 
@@ -548,7 +549,7 @@ Diese Punkte werden nicht vorab überkompliziert, sondern anhand eines spielbare
 - Wie stark hebt Thomas Müntzer die Moral, wie viel kostet mit ihm das gemäßigte Schreiben, und wie viel Moral kostet es, ihn wegzuschicken?
 - Wie viele Freiwillige kann ein Dorf bereitstellen?
 - Wie selten sind Veteranen und wie stark sind sie?
-- Wie hoch sind Anwerbegebühr und Grundanteil pro Landsknecht an der Beute?
+- Wie hoch sind Anwerbegebühr, Grundanteil und Mindestanspruch pro Landsknecht an der Beute?
 - Wie genau werden Waffen aus Beute aufgeteilt?
 - Wie stark reduzieren Rüstungen Schaden?
 - Wie wirksam sind Speere gegen berittene Gegner?
@@ -557,6 +558,6 @@ Diese Punkte werden nicht vorab überkompliziert, sondern anhand eines spielbare
 
 ## 16. Offene Designentscheidungen
 
-- **Zahlungsverzug der Landsknechte:** Woraus entsteht ein Rückstand, wenn der Beuteanteil auf die verfügbare Beute begrenzt ist? (siehe 7.4)
+- Derzeit keine. (Zahlungsverzug der Landsknechte entschieden am 2026-10-19: Mindestanspruch pro Beuteabrechnung, siehe 7.4.)
 
 **Grundsatz:** Erst eine einfache, funktionierende Spielschleife; danach schrittweise Tiefe ergänzen.

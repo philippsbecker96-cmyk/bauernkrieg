@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SUPPLY, type SupplyConfig } from '../game/data/balance';
+import { LANDSKNECHT, RECRUITMENT, SUPPLY, type SupplyConfig } from '../game/data/balance';
 import { MINI_MISSION, type VillageDefinition } from '../game/data/missions';
 import { MOVEMENT } from '../game/data/movement';
 import { createUnit, type Unit } from '../game/entities/Unit';
@@ -9,12 +9,13 @@ import {
   buyFoodAtVillage,
   checkFoodPurchase,
   checkRecruit,
-  claimVictoryReward,
   createMissionState,
   recruitableNow,
   recruitAtVillage,
+  settlePostLoot,
   siteCenter,
   volunteersLeft,
+  volunteersOffered,
 } from '../game/systems/mission';
 import { buildWalkGrid } from '../game/systems/pathfinding';
 import {
@@ -209,7 +210,7 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
     expect(rest).toHaveLength(3);
     units.push(...rest);
     expect(new Set(units.map((u) => u.id)).size).toBe(units.length);
-    expect(armySize(units)).toBe(startArmySize + village.recruits.count);
+    expect(armySize(units)).toBe(startArmySize + volunteersOffered(village, RECRUITMENT));
     expect(checkRecruit(state, village, units, tileSize, SUPPLY)).toBe('noVolunteersLeft');
   });
 
@@ -218,7 +219,7 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
     const units = army(startArmySize);
     const one = recruitAtVillage(state, village, units, grid, tileSize, MOVEMENT.formationSpacing, SUPPLY, 1);
     expect(one).toHaveLength(1);
-    expect(volunteersLeft(state, village)).toBe(village.recruits.count - 1);
+    expect(volunteersLeft(state, village)).toBe(volunteersOffered(village, RECRUITMENT) - 1);
   });
 
   it('bei Hunger schließt sich niemand an', () => {
@@ -228,7 +229,7 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
     const units = army(2);
     expect(checkRecruit(state, village, units, tileSize, SUPPLY)).toBe('notEnoughFood');
     expect(recruitAtVillage(state, village, units, grid, tileSize, MOVEMENT.formationSpacing, SUPPLY)).toEqual([]);
-    expect(volunteersLeft(state, village)).toBe(village.recruits.count);
+    expect(volunteersLeft(state, village)).toBe(volunteersOffered(village, RECRUITMENT));
   });
 
   it('die Armee wächst bei Knappheit nicht weiter, auch mit Gold nicht über den Dorfvorrat hinaus', () => {
@@ -241,14 +242,15 @@ describe('Rekrutierungsstopp bei Nahrungsknappheit', () => {
   });
 });
 
-describe('Missionsbelohnung', () => {
-  it('wird nur nach einem Sieg und genau einmal gutgeschrieben', () => {
+describe('Beute des Postens', () => {
+  it('wird nur nach einem Sieg und genau einmal gutgeschrieben (ohne Landsknechte ganz an den Spieler)', () => {
     const state = createMissionState(mission);
-    expect(claimVictoryReward(state, mission)).toBe(false);
+    const units = [createUnit(1, 'peasant', 0, 0), createUnit(2, 'crossbowman', 0, 0)];
+    expect(settlePostLoot(state, mission.post, units, LANDSKNECHT)).toBeNull();
     state.outcome = 'victory';
-    expect(claimVictoryReward(state, mission)).toBe(true);
-    expect(claimVictoryReward(state, mission)).toBe(false);
-    expect(state.supply.gold).toBe(mission.startSupplies.gold + mission.reward.gold);
-    expect(state.supply.food).toBe(mission.startSupplies.food + mission.reward.food);
+    expect(settlePostLoot(state, mission.post, units, LANDSKNECHT)).not.toBeNull();
+    expect(settlePostLoot(state, mission.post, units, LANDSKNECHT)).toBeNull();
+    expect(state.supply.gold).toBe(mission.startSupplies.gold + mission.post.loot.gold);
+    expect(state.supply.food).toBe(mission.startSupplies.food + mission.post.loot.food);
   });
 });

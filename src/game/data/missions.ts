@@ -2,6 +2,7 @@ import type { MissionHunting } from './hunting';
 import type { MapConfig } from './maps';
 import type { FoodOffer, Supplies } from '../systems/supply';
 import type { UnitGroupSpawn } from './testScenario';
+import type { UnitTypeId } from './units';
 
 /**
  * Mission definitions (milestone 3a: the mini mission). Positions are in tiles.
@@ -18,18 +19,30 @@ export interface SiteDefinition {
   clearRadius: number;
 }
 
+/** `village`: houses, volunteers and food; `tavern`: a gathering place where mercenaries wait (GDD 10). */
+export type PlaceKind = 'village' | 'tavern';
+
 /**
- * Village with placeholder recruitment: when a player unit stands within
- * `recruitRadius` and the player clicks the village, volunteers join – as many
- * as the food can sustain (milestone 4), in total at most `recruits.count`.
- * Replaced by the real recruitment (support, supply) in milestone 5.
+ * Interactive place of a mission (milestone 5): villages and gathering places such as taverns.
+ * A player unit within `recruitRadius` lets the player recruit volunteers (free), hire
+ * Landsknechte (gold) or buy food, depending on what the place offers.
  */
 export interface VillageDefinition extends SiteDefinition {
-  /** Radius (px) around the village centre a player unit must be in to recruit. */
+  /** Defaults to `village`; only changes the drawing and the texts. */
+  kind?: PlaceKind;
+  /** Radius (px) around the centre a player unit must be in to recruit, hire or buy. */
   recruitRadius: number;
-  recruits: Omit<UnitGroupSpawn, 'tileX' | 'tileY'>;
   /**
-   * Food the village sells (milestone 4): one lot per purchase while a player unit
+   * Local support 0–100 (milestone 5: fixed per mission; it changes from milestone 6 on).
+   * Decides how many of `volunteers.max` are offered (see `volunteersOffered`).
+   */
+  support?: number;
+  /** Free volunteers: at most `max` (at full support); as many join as the food can sustain. */
+  volunteers?: { typeId: UnitTypeId; max: number };
+  /** Landsknechte for hire in this mission: `count` in total, `fee` gold each (GDD 7.4). */
+  mercenaries?: { typeId: UnitTypeId; count: number; fee: number };
+  /**
+   * Food the place sells (milestone 4): one lot per purchase while a player unit
    * stands within `recruitRadius`; `stock` is the total food it can sell in this mission.
    */
   foodMarket?: FoodOffer & { stock: number };
@@ -46,6 +59,11 @@ export interface PostDefinition extends SiteDefinition {
   /** Progress lost per second while no player unit is in the zone (seconds of progress per second). */
   captureDecay: number;
   garrison: readonly UnitGroupSpawn[];
+  /**
+   * Loot credited once when the post is taken. The gold is split with the
+   * Landsknechte (milestone 5, see `settleLoot`); the food goes to the player in full.
+   */
+  loot: Supplies;
 }
 
 export interface MissionDefinition {
@@ -57,12 +75,11 @@ export interface MissionDefinition {
   startArmy: readonly UnitGroupSpawn[];
   /** Initial rally point for the retreat order (tiles). */
   rallyPoint: { tileX: number; tileY: number };
+  /** Villages and gathering places (taverns). */
   villages: readonly VillageDefinition[];
   post: PostDefinition;
   /** Gold and food at mission start (milestone 4). */
   startSupplies: Supplies;
-  /** Gold and food credited once on victory. */
-  reward: Supplies;
   /** Hunting changes for this mission (milestone 4a); defaults in `hunting.ts`. */
   hunting?: MissionHunting;
 }
@@ -97,8 +114,22 @@ export const MINI_MISSION: MissionDefinition = {
       tileY: 25,
       clearRadius: 2,
       recruitRadius: 80,
-      recruits: { typeId: 'peasant', count: 6 },
+      // 60 % of at most 10 volunteers: 6 peasants are willing to join.
+      support: 60,
+      volunteers: { typeId: 'peasant', max: 10 },
       foodMarket: { amount: 10, price: 10, stock: 30 },
+    },
+    {
+      id: 'wirtshaus',
+      name: 'Wirtshaus „Zum Krug“',
+      kind: 'tavern',
+      // North of the road, on the way from the start to the ford.
+      tileX: 16,
+      tileY: 12,
+      clearRadius: 2,
+      recruitRadius: 70,
+      // 40 gold at the start: hiring two leaves almost nothing for food.
+      mercenaries: { typeId: 'landsknecht', count: 3, fee: 15 },
     },
   ],
   post: {
@@ -114,11 +145,11 @@ export const MINI_MISSION: MissionDefinition = {
       { typeId: 'guard', count: 4, tileX: 32, tileY: 20 },
       { typeId: 'guardCrossbowman', count: 1, tileX: 34, tileY: 20 },
     ],
+    loot: { gold: 60, food: 20 },
   },
   // 21 food last the 7 starting units 3 days, but not 13 units for 2 days:
   // recruiting all of the village's volunteers requires buying or hunting food first.
   startSupplies: { gold: 40, food: 21 },
-  reward: { gold: 25, food: 20 },
   hunting: {
     forests: [
       // Small wood north of the start: safe, but soon hunted out.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SUPPLY } from '../game/data/balance';
+import { RECRUITMENT, SUPPLY } from '../game/data/balance';
 import { COMBAT } from '../game/data/combat';
 import { MINI_MISSION, type PostDefinition, type VillageDefinition } from '../game/data/missions';
 import { MOVEMENT } from '../game/data/movement';
@@ -21,6 +21,7 @@ import {
   siteCenter,
   stepMission,
   volunteersLeft,
+  volunteersOffered,
 } from '../game/systems/mission';
 import { stepMovement, type MovementConfig } from '../game/systems/movement';
 import { stepSupply } from '../game/systems/supply';
@@ -69,19 +70,19 @@ describe('Karte der Mini-Mission', () => {
     expect(buildMissionTiles(mission)).toEqual(buildMissionTiles(mission));
   });
 
-  it('Dorf und Posten stehen auf freiem Gelände ohne Wald', () => {
+  it('Dorf, Wirtshaus und Posten stehen auf freiem Gelände ohne Wald', () => {
     const tiles = buildMissionTiles(mission);
-    for (const site of [village, post]) {
+    for (const site of [...mission.villages, post]) {
       expect(tiles[site.tileY]![site.tileX]).not.toBe(TileType.Water);
       expect(tiles[site.tileY]![site.tileX]).not.toBe(TileType.Forest);
     }
   });
 
-  it('Startgruppe, Dorf und Posten sind über Land miteinander verbunden', () => {
+  it('Startgruppe, Dorf, Wirtshaus und Posten sind über Land miteinander verbunden', () => {
     const grid = buildWalkGrid(buildMissionTiles(mission));
     const start = mission.startArmy[0]!;
     const from = nearestWalkableTile(grid, { x: start.tileX, y: start.tileY })!;
-    for (const site of [village, post]) {
+    for (const site of [...mission.villages, post]) {
       expect(isWalkable(grid, site.tileX, site.tileY)).toBe(true);
       expect(findPath(grid, from, { x: site.tileX, y: site.tileY })).not.toBeNull();
     }
@@ -97,7 +98,7 @@ describe('Karte der Mini-Mission', () => {
   });
 });
 
-describe('Platzhalter-Rekrutierung im Dorf', () => {
+describe('Rekrutierung im Dorf', () => {
   const centre = siteCenter(village, tileSize);
 
   it('verlangt einen eigenen Kämpfer in der Nähe des Dorfes', () => {
@@ -114,8 +115,8 @@ describe('Platzhalter-Rekrutierung im Dorf', () => {
     const state = createMissionState(mission);
     const units = [at(5, 'player', centre.x, centre.y), at(9, 'enemy', 0, 0)];
     const recruits = recruitAtVillage(state, village, units, grid, tileSize, spacing, SUPPLY);
-    expect(recruits).toHaveLength(village.recruits.count);
-    expect(recruits.every((u) => u.typeId === village.recruits.typeId && u.faction === 'player')).toBe(true);
+    expect(recruits).toHaveLength(volunteersOffered(village, RECRUITMENT));
+    expect(recruits.every((u) => u.typeId === village.volunteers!.typeId && u.faction === 'player')).toBe(true);
     expect(recruits.map((u) => u.id)).toEqual([10, 11, 12, 13, 14, 15]);
     for (const u of recruits) {
       expect(Math.hypot(u.x - centre.x, u.y - centre.y)).toBeLessThan(village.recruitRadius);
@@ -130,7 +131,7 @@ describe('Platzhalter-Rekrutierung im Dorf', () => {
     const state = createMissionState(mission);
     const units = [at(1, 'player', 0, 0)];
     expect(recruitAtVillage(state, village, units, grid, tileSize, spacing, SUPPLY)).toEqual([]);
-    expect(volunteersLeft(state, village)).toBe(village.recruits.count);
+    expect(volunteersLeft(state, village)).toBe(volunteersOffered(village, RECRUITMENT));
   });
 });
 
@@ -232,14 +233,14 @@ describe('Mini-Mission von Start bis Ende (ohne Grafik)', () => {
     marchTo(ctx, siteCenter(village, tileSize));
     simulate(ctx, 90, () => players(ctx.units).every((u) => !isMoving(u)));
     // Too little food for twice the army: buy food at the village until all volunteers can be fed.
-    expect(recruitableNow(ctx.state, village, ctx.units, SUPPLY)).toBeLessThan(village.recruits.count);
-    while (recruitableNow(ctx.state, village, ctx.units, SUPPLY) < village.recruits.count) {
+    expect(recruitableNow(ctx.state, village, ctx.units, SUPPLY)).toBeLessThan(volunteersOffered(village, RECRUITMENT));
+    while (recruitableNow(ctx.state, village, ctx.units, SUPPLY) < volunteersOffered(village, RECRUITMENT)) {
       expect(buyFoodAtVillage(ctx.state, village, ctx.units, tileSize)).toBeGreaterThan(0);
     }
     const recruits = recruitAtVillage(ctx.state, village, ctx.units, ctx.grid, tileSize, spacing, SUPPLY);
-    expect(recruits).toHaveLength(village.recruits.count);
+    expect(recruits).toHaveLength(volunteersOffered(village, RECRUITMENT));
     ctx.units.push(...recruits);
-    expect(players(ctx.units)).toHaveLength(startCount + village.recruits.count);
+    expect(players(ctx.units)).toHaveLength(startCount + volunteersOffered(village, RECRUITMENT));
 
     // 2. Attack the post: every peasant attacks the nearest guard (right click on enemies).
     attackNearest(ctx.units);
@@ -248,7 +249,7 @@ describe('Mini-Mission von Start bis Ende (ohne Grafik)', () => {
     expect(enemies(ctx.units)).toHaveLength(0);
     // Peasants paid a price but are not wiped out.
     expect(players(ctx.units).length).toBeGreaterThan(0);
-    expect(players(ctx.units).length).toBeLessThan(startCount + village.recruits.count);
+    expect(players(ctx.units).length).toBeLessThan(startCount + volunteersOffered(village, RECRUITMENT));
 
     // 3. Occupy the post until it is taken.
     marchTo(ctx, siteCenter(post, tileSize));

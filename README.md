@@ -27,18 +27,23 @@ Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). 
 
 **Mini-Mission „Der erste Haufen“** (startet automatisch)
 
-Eine kleine Gruppe Bauern mit einem Armbrustschützen steht am Westrand des Weges. Südwestlich liegt das Dorf Hohenweiler, östlich des Bachs ein Wachposten.
+Eine kleine Gruppe Bauern mit einem Armbrustschützen steht am Westrand des Weges. Südwestlich liegt das Dorf Hohenweiler,
+nördlich der Straße vor der Furt das Wirtshaus „Zum Krug“, östlich des Bachs ein Wachposten.
 
-1. Bauern auswählen und in den blauen Kreis um das Dorf schicken, dann das Dorf anklicken: Von den 6 Freiwilligen des Dorfes
-   schließen sich so viele an, wie die Nahrung danach noch 2 Tage versorgt; Umschalt+Klick holt genau einen.
-   Die übrigen bleiben im Dorf und können nach einem Nahrungskauf (**F**) nachkommen
-   (Platzhalter-Rekrutierung, wird in Meilenstein 5 ersetzt).
-2. Über die Furt zum Posten ziehen und die Wachen angreifen.
-3. **Sieg:** eigene Einheiten stehen 5 Sekunden lang im Kreis des Postens, ohne dass Gegner darin sind (Fortschrittsring, Anzeige oben links).
+1. **Freiwillige (kostenlos):** Bauern in den blauen Kreis um das Dorf schicken, dann das Dorf anklicken. Wie viele Freiwillige ein Dorf
+   anbietet, hängt von seiner Unterstützung ab (Hohenweiler: 60 % → 6 von höchstens 10; unter 30 % niemand). Es schließen sich so viele an,
+   wie die Nahrung danach noch 2 Tage versorgt; Umschalt+Klick holt genau einen. Die übrigen können nach einem Nahrungskauf (**F**) nachkommen.
+2. **Landsknechte (gegen Gold):** eigene Leute in den Kreis um das Wirtshaus schicken, dann das Wirtshaus anklicken: Pro Klick lässt sich
+   ein Landsknecht für 15 Gold anwerben (3 verfügbar). Auch Landsknechte essen mit; bei knapper Nahrung wird niemand angeworben.
+   Das Missionsfeld oben links vergleicht Landsknecht und Bauer und zeigt, wie viel der Beute des Postens die Landsknechte jetzt
+   und mit einem weiteren beanspruchen würden.
+3. Über die Furt zum Posten ziehen und die Wachen angreifen.
+4. **Sieg:** eigene Einheiten stehen 5 Sekunden lang im Kreis des Postens, ohne dass Gegner darin sind (Fortschrittsring, Anzeige oben links).
    Verlassen alle eigenen Einheiten den Kreis, sinkt der Fortschritt wieder; stehen Gegner darin, pausiert er.
-4. **Niederlage:** alle eigenen Einheiten sind gefallen.
+5. **Niederlage:** alle eigenen Einheiten sind gefallen.
 
-Die Missionsdaten (Karte, Startgruppe, Dorf, Posten, Einnahmezeit, Startvorräte, Nahrungsangebot des Dorfes, Belohnung,
+Die Missionsdaten (Karte, Startgruppe, Dorf mit Unterstützung, Wirtshaus mit Landsknechten und Anwerbegebühr, Posten mit Beute,
+Einnahmezeit, Startvorräte, Nahrungsangebot des Dorfes,
 Namen und Wildbestand einzelner Wälder) stehen in `src/game/data/missions.ts`.
 
 **Gold und Nahrung** (Anzeige oben rechts)
@@ -49,8 +54,18 @@ Namen und Wildbestand einzelner Wälder) stehen in `src/game/data/missions.ts`.
   hungert der Haufen: Nahrung bleibt bei 0, die Anzeige wird rot.
 - Rekrutierungsstopp: Freiwillige schließen sich nur an, soweit die Nahrung danach noch mindestens 2 Tage reicht, und gar nicht, solange der Haufen hungert.
 - Nahrung kaufen: eigene Leute ins Dorf schicken, **F** drücken (10 Nahrung für 10 Gold, insgesamt 30 vorrätig).
-- Sieg bringt eine Belohnung (+25 Gold, +20 Nahrung).
+- Die Einnahme des Postens bringt Beute (60 Gold, 20 Nahrung), siehe unten.
 - Zeitmaßstab, Verbrauch und Warnschwelle stehen in `src/game/data/balance.ts`.
+
+**Landsknechte und Beute**
+
+- Landsknechte kosten bei der Anwerbung Gold; Bauern und Freiwillige kosten kein Gold.
+- Bei der Einnahme des Postens wird die Gold-Beute aufgeteilt: Die Landsknechte beanspruchen ihren Anteil am Haufen × 1,5
+  (z. B. 3 von 15 Mann = 20 % → 30 % der Beute), höchstens die ganze Beute. Mehr Landsknechte erhöhen den Anteil,
+  mehr Freiwillige verringern ihn. Nahrung wird nicht geteilt. Der Siegbildschirm zeigt Gesamtbeute, Landsknecht-Anteil und den Rest für dich.
+- Mindestanspruch: 5 Gold je Landsknecht und Abrechnung. Reicht die Beute nicht, wird aus der Kasse nachgezahlt; was dann noch fehlt,
+  wird als Rückstand angezeigt (oben rechts). Gold wird nie negativ. Folgen eines Rückstands (Moral, Abzug) kommen mit Meilenstein 8.
+- Gewichtung (1,5), Mindestanspruch und Freiwilligen-Schwelle stehen in `src/game/data/balance.ts`, Anwerbegebühr und Beute in `src/game/data/missions.ts`.
 
 **Jagd** (zusätzliche, begrenzte Nahrungsquelle)
 
