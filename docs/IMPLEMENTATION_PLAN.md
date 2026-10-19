@@ -100,7 +100,7 @@ Laut Design-Dokument können Landsknechte bei Zahlungsverzug unzufrieden werden 
 
 ## Meilenstein 0 – Projektgerüst und technische Basis
 
-**Status:** nicht abgeschlossen (Git-Commit, GitHub-Repository und öffentliche Veröffentlichung fehlen noch)
+**Status:** abgeschlossen und geprüft (2026-10-19) – öffentlich unter https://philippsbecker96-cmyk.github.io/bauernkrieg/
 
 **Ziel:** Ein sauberes Projekt, das lokal startet, eine einfache Karte zeigt, getestet werden kann und online erreichbar ist.
 
