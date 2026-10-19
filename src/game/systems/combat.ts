@@ -1,5 +1,10 @@
-import { getUnitType, type Faction, type MeleeAttack, type RangedAttack } from '../data/units';
+import { getArmor, type ArmorDefinition } from '../data/armor';
+import { DAMAGE } from '../data/combat';
+import { getUnitType, type Faction } from '../data/units';
+import { getWeapon, type UnitTag, type WeaponDefinition } from '../data/weapons';
 import { isMoving, setUnitRoute, stopUnit, type Point, type Unit } from '../entities/Unit';
+import type { TileGrid } from '../map/mapGenerator';
+import { getTileDefinition } from '../map/tiles';
 import { worldPath } from './formation';
 import { hasLineOfSight, nearestWalkableTile, worldToTile, type WalkGrid } from './pathfinding';
 
@@ -11,6 +16,23 @@ export interface CombatConfig {
   alertRadius: number;
   repathInterval: number;
   lineOfSightMargin: number;
+  /** Ranged cover per tile (`grid[y][x]`, share of shots that miss); no cover if omitted. */
+  coverGrid?: CoverGrid;
+  /** Random source in [0, 1) for hit rolls; `Math.random` if omitted. Pass a seeded one in tests. */
+  random?: () => number;
+}
+
+/** Share of ranged shots that miss, per tile, indexed as `grid[y][x]`. */
+export type CoverGrid = number[][];
+
+export function buildCoverGrid(tiles: TileGrid): CoverGrid {
+  return tiles.map((row) => row.map((type) => getTileDefinition(type).rangedCover));
+}
+
+/** Chance (0..1) that a ranged shot hits a unit standing at world point (x, y). */
+export function rangedHitChance(cover: CoverGrid | undefined, tileSize: number, x: number, y: number): number {
+  const value = cover?.[Math.floor(y / tileSize)]?.[Math.floor(x / tileSize)] ?? 0;
+  return 1 - value;
 }
 
 /** Something that happened during a combat step, for visual feedback in the scene. */
@@ -21,6 +43,15 @@ export type CombatEvent =
       targetId: number;
       ranged: boolean;
       damage: number;
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+    }
+  | {
+      kind: 'miss';
+      attackerId: number;
+      targetId: number;
       fromX: number;
       fromY: number;
       toX: number;
@@ -38,9 +69,51 @@ export function evaluateOutcome(units: readonly Unit[]): BattleOutcome {
   return 'running';
 }
 
-/** Hit points a single attack removes. Armour and weapon bonuses follow in milestone 3. */
-export function computeDamage(attack: MeleeAttack | RangedAttack): number {
-  return Math.max(0, attack.damage);
+export interface DamageInput {
+  weapon: WeaponDefinition;
+  /** Attacker's training multiplier (`UnitTypeDefinition.attack`). */
+  attack: number;
+  armor: ArmorDefinition;
+  /** Target's close-combat defence (`UnitTypeDefinition.defense`); ignored for ranged weapons. */
+  defense: number;
+  targetTags?: readonly UnitTag[];
+}
+
+/**
+ * Hit points a single hit removes (formula documented at `DAMAGE` in data/combat.ts):
+ * armour absorbs a share of the damage, armour-piercing weapons ignore part of that
+ * protection, trained units parry part of close-combat damage. At least `minDamage`.
+ */
+export function computeDamage({ weapon, attack, armor, defense, targetTags = [] }: DamageInput): number {
+  const armorFactor = 1 - armor.protection * (1 - weapon.armorPiercing);
+  const defenseFactor = weapon.kind === 'melee' ? 1 - defense : 1;
+  let bonus = 1;
+  for (const tag of targetTags) bonus *= weapon.bonusAgainst[tag] ?? 1;
+  return Math.max(DAMAGE.minDamage, weapon.damage * attack * armorFactor * defenseFactor * bonus);
+}
+
+/** Damage `attacker` deals to `target` with `weapon`, using both units' type values and the target's armour. */
+export function damageAgainst(attacker: Unit, weapon: WeaponDefinition, target: Unit): number {
+  const targetType = getUnitType(target.typeId);
+  return computeDamage({
+    weapon,
+    attack: getUnitType(attacker.typeId).attack,
+    armor: getArmor(target.equipment.armor),
+    defense: targetType.defense,
+    targetTags: targetType.tags,
+  });
+}
+
+/** The unit's main weapon. */
+export function mainWeapon(unit: Unit): WeaponDefinition {
+  return getWeapon(unit.equipment.weapon);
+}
+
+/** Weapon used against an adjacent enemy: the sidearm of ranged units (bare-handed knife if none). */
+function closeCombatWeapon(unit: Unit): WeaponDefinition {
+  const main = mainWeapon(unit);
+  if (main.kind === 'melee') return main;
+  return getWeapon(unit.equipment.sidearm ?? 'knife');
 }
 
 /** Gap between two unit circles (px); 0 or less when they touch. */
@@ -54,13 +127,13 @@ function isAlive(unit: Unit | undefined): unit is Unit {
 
 /** Distance (px, centre to centre) within which an idle unit notices enemies. */
 export function acquisitionRange(unit: Unit, config: CombatConfig): number {
-  const ranged = getUnitType(unit.typeId).ranged;
-  return Math.max(config.acquisitionRadius, ranged ? ranged.range + unit.radius * 2 : 0);
+  const weapon = mainWeapon(unit);
+  return Math.max(config.acquisitionRadius, weapon.kind === 'ranged' ? weapon.range + unit.radius * 2 : 0);
 }
 
 /** Largest gap (px) at which the unit can hit anything without moving. */
-export function maxReach(unit: Unit, config: CombatConfig): number {
-  return getUnitType(unit.typeId).ranged?.range ?? config.meleeReach;
+export function maxReach(unit: Unit): number {
+  return mainWeapon(unit).range;
 }
 
 /** Nearest living enemy of `unit` that satisfies `within` (ties broken by lower id). */
@@ -119,13 +192,33 @@ function returnHome(unit: Unit, grid: WalkGrid, config: CombatConfig): void {
   if (!routeTowards(unit, grid, unit.home, config)) becomeIdle(unit);
 }
 
-function attack(unit: Unit, target: Unit, ranged: boolean, events: CombatEvent[]): void {
-  const type = getUnitType(unit.typeId);
-  const attackDef = ranged && type.ranged ? type.ranged : type.melee;
-  const damage = computeDamage(attackDef);
-  target.hp -= damage;
+function attack(
+  unit: Unit,
+  target: Unit,
+  weapon: WeaponDefinition,
+  config: CombatConfig,
+  events: CombatEvent[],
+): void {
+  const ranged = weapon.kind === 'ranged';
+  unit.attackCooldown = weapon.cooldown;
   target.lastAttackerId = unit.id;
-  unit.attackCooldown = attackDef.cooldown;
+  if (ranged) {
+    const chance = rangedHitChance(config.coverGrid, config.tileSize, target.x, target.y);
+    if (chance < 1 && (config.random ?? Math.random)() >= chance) {
+      events.push({
+        kind: 'miss',
+        attackerId: unit.id,
+        targetId: target.id,
+        fromX: unit.x,
+        fromY: unit.y,
+        toX: target.x,
+        toY: target.y,
+      });
+      return;
+    }
+  }
+  const damage = damageAgainst(unit, weapon, target);
+  target.hp -= damage;
   events.push({
     kind: 'hit',
     attackerId: unit.id,
@@ -154,19 +247,18 @@ function fight(
   events: CombatEvent[],
   canMove: boolean,
 ): Unit | undefined {
-  const type = getUnitType(unit.typeId);
+  const main = mainWeapon(unit);
   let foe = target;
-  if (type.ranged && edgeDistance(unit, target) > config.meleeReach) {
+  if (main.kind === 'ranged' && edgeDistance(unit, target) > config.meleeReach) {
     const adjacent = nearestEnemy(unit, units, (e) => edgeDistance(unit, e) <= config.meleeReach);
     if (adjacent) foe = adjacent;
   }
   const gap = edgeDistance(unit, foe);
-  const useRanged = type.ranged !== undefined && gap > config.meleeReach;
-  const reach = useRanged ? type.ranged!.range : config.meleeReach;
+  const weapon = main.kind === 'ranged' && gap <= config.meleeReach ? closeCombatWeapon(unit) : main;
 
-  if (gap <= reach) {
+  if (gap <= weapon.range) {
     if (isMoving(unit)) stopUnit(unit);
-    if (unit.attackCooldown <= 0) attack(unit, foe, useRanged, events);
+    if (unit.attackCooldown <= 0) attack(unit, foe, weapon, config, events);
     return foe;
   }
   if (!canMove) return undefined;
@@ -205,8 +297,8 @@ function updateUnit(
 
     case 'hold': {
       let target = byId.get(unit.targetId ?? -1);
-      if (!isAlive(target) || edgeDistance(unit, target) > maxReach(unit, config)) {
-        const reach = maxReach(unit, config);
+      if (!isAlive(target) || edgeDistance(unit, target) > maxReach(unit)) {
+        const reach = maxReach(unit);
         target = nearestEnemy(unit, units, (e) => edgeDistance(unit, e) <= reach);
       }
       unit.targetId = target?.id ?? null;
@@ -312,5 +404,13 @@ export function markMarching(units: readonly Unit[], order: 'move' | 'retreat'):
     unit.order = order;
     unit.targetId = null;
     unit.lastAttackerId = null;
+  }
+}
+
+/** Every unit attacks the nearest enemy, wherever it is (used by the 100-unit performance test). */
+export function orderGeneralAttack(units: readonly Unit[]): void {
+  for (const unit of units) {
+    const target = nearestEnemy(unit, units, () => true);
+    if (target) orderAttack([unit], target);
   }
 }

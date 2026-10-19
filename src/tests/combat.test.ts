@@ -4,11 +4,12 @@ import { TEST_MAP } from '../game/data/maps';
 import { MOVEMENT } from '../game/data/movement';
 import { TEST_SCENARIO } from '../game/data/testScenario';
 import { UNIT_TYPES, type UnitTypeId } from '../game/data/units';
+import { WEAPONS } from '../game/data/weapons';
 import { createUnit, isMoving, type Unit } from '../game/entities/Unit';
 import { spawnUnits } from '../game/entities/UnitFactory';
 import { generateMap } from '../game/map/mapGenerator';
 import {
-  computeDamage,
+  damageAgainst,
   evaluateOutcome,
   findTarget,
   markMarching,
@@ -76,7 +77,7 @@ describe('Schaden und Lebenspunkte', () => {
     const b = unit('guard', 100 + 14 + 2, 100); // touching (radii 7 + 7) plus 2 px
     orderAttack([a], b);
     stepCombat([a, b], grid, dt, config);
-    expect(b.hp).toBe(UNIT_TYPES.guard.maxHp - computeDamage(UNIT_TYPES.peasant.melee));
+    expect(b.hp).toBeCloseTo(UNIT_TYPES.guard.maxHp - damageAgainst(a, WEAPONS.improvised, b), 6);
   });
 
   it('respektiert den Angriffstakt', () => {
@@ -140,7 +141,7 @@ describe('Zielwahl', () => {
   });
 
   it('Fernkämpfer bemerken Gegner bis zu ihrer Reichweite', () => {
-    const range = UNIT_TYPES.crossbowman.ranged.range;
+    const range = WEAPONS.crossbow.range;
     const a = unit('crossbowman', 100, 100);
     const e = unit('guard', 100 + range + 10, 100);
     expect(findTarget(a, [a, e], config)).toBe(e);
@@ -158,7 +159,7 @@ describe('Nahkampf und Fernkampf', () => {
     const { events } = run(units, grid, 0.1);
     expect(events).toContainEqual(expect.objectContaining({ kind: 'hit', attackerId: archer.id, ranged: true }));
     expect(archer.x).toBeCloseTo(100, 0);
-    expect(target.hp).toBe(UNIT_TYPES.guard.maxHp - UNIT_TYPES.crossbowman.ranged.damage);
+    expect(target.hp).toBeCloseTo(UNIT_TYPES.guard.maxHp - damageAgainst(archer, WEAPONS.crossbow, target), 6);
   });
 
   it('Nahkämpfer laufen zum Ziel und schlagen erst in Kontakt zu', () => {
@@ -188,7 +189,7 @@ describe('Nahkampf und Fernkampf', () => {
     expect(events).toContainEqual(
       expect.objectContaining({ kind: 'hit', attackerId: archer.id, targetId: adjacent.id, ranged: false }),
     );
-    expect(adjacent.hp).toBe(1000 - UNIT_TYPES.crossbowman.melee.damage);
+    expect(adjacent.hp).toBeCloseTo(1000 - damageAgainst(archer, WEAPONS.knife, adjacent), 6);
   });
 });
 

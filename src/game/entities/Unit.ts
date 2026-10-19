@@ -1,4 +1,5 @@
-import { UNIT_TYPES, type Faction, type UnitTypeId } from '../data/units';
+import { getArmor } from '../data/armor';
+import { getUnitType, type Equipment, type Faction, type UnitTypeId } from '../data/units';
 
 export interface Point {
   x: number;
@@ -24,7 +25,10 @@ export interface Unit {
   x: number;
   y: number;
   radius: number;
+  /** Effective speed: base speed of the type times the armour's speed factor. */
   speed: number;
+  /** Weapons and armour this unit carries (copied from its type, exchangeable per unit later). */
+  equipment: Equipment;
   /** World-space waypoints of the current move order; empty when idle. */
   waypoints: Point[];
   /** Index of the waypoint the unit is currently heading for. */
@@ -48,8 +52,14 @@ export interface Unit {
   lastAttackerId: number | null;
 }
 
-export function createUnit(id: number, typeId: UnitTypeId, x: number, y: number): Unit {
-  const type = UNIT_TYPES[typeId];
+export function createUnit(
+  id: number,
+  typeId: UnitTypeId,
+  x: number,
+  y: number,
+  equipment: Equipment = getUnitType(typeId).equipment,
+): Unit {
+  const type = getUnitType(typeId);
   return {
     id,
     typeId,
@@ -57,7 +67,8 @@ export function createUnit(id: number, typeId: UnitTypeId, x: number, y: number)
     x,
     y,
     radius: type.radius,
-    speed: type.speed,
+    speed: type.speed * getArmor(equipment.armor).speedFactor,
+    equipment: { ...equipment },
     waypoints: [],
     waypointIndex: 0,
     bestDistance: Infinity,

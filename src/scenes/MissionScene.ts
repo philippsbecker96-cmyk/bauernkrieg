@@ -4,15 +4,22 @@ import { COMBAT } from '../game/data/combat';
 import { CAMERA_CONTROLS } from '../game/data/controls';
 import { TEST_MAP } from '../game/data/maps';
 import { MOVEMENT, SELECTION } from '../game/data/movement';
-import { TEST_RALLY_POINT, TEST_SCENARIO } from '../game/data/testScenario';
+import { getArmor } from '../game/data/armor';
+import { STRESS_SCENARIO, TEST_RALLY_POINT, TEST_SCENARIO } from '../game/data/testScenario';
+import { getUnitType } from '../game/data/units';
+import { getWeapon, type WeaponDefinition } from '../game/data/weapons';
 import { finalWaypoint, isMoving, type Point, type Unit } from '../game/entities/Unit';
 import { spawnUnits } from '../game/entities/UnitFactory';
 import { generateMap } from '../game/map/mapGenerator';
 import { getTileDefinition, type TileType } from '../game/map/tiles';
 import {
+  buildCoverGrid,
+  damageAgainst,
   evaluateOutcome,
+  mainWeapon,
   markMarching,
   orderAttack,
+  orderGeneralAttack,
   orderHold,
   stepCombat,
   type BattleOutcome,
@@ -36,7 +43,19 @@ import {
   type BattleStatusEvent,
   type SelectionChangedEvent,
   type TileHoverEvent,
+  type UnitInfoEvent,
 } from './sceneKeys';
+
+/** Which units the scene starts with: the regular test battle or the 100-unit performance test (key B). */
+type ScenarioKind = 'test' | 'stress';
+
+const SCENARIO_NAMES: Record<ScenarioKind, string> = {
+  test: 'Testgefecht',
+  stress: 'Belastungstest (100 Einheiten)',
+};
+
+/** Speed of the visual crossbow bolt (px/s); damage itself is applied on release. */
+const BOLT_SPEED = 900;
 
 interface PanKeys {
   up: Phaser.Input.Keyboard.Key[];
@@ -86,11 +105,13 @@ export class MissionScene extends Phaser.Scene {
     giveUpTimeout: MOVEMENT.giveUpTimeout,
     lineOfSightMargin: MOVEMENT.lineOfSightMargin,
   };
-  private readonly combatConfig: CombatConfig = {
+  private combatConfig: CombatConfig = {
     tileSize: TEST_MAP.tileSize,
     ...COMBAT,
     lineOfSightMargin: MOVEMENT.lineOfSightMargin,
   };
+  private scenario: ScenarioKind = 'test';
+  private lastUnitInfo: string | null = null;
   private rallyPoint: Point = { x: 0, y: 0 };
   private outcome: BattleOutcome = 'running';
 
@@ -98,8 +119,10 @@ export class MissionScene extends Phaser.Scene {
     super(SceneKeys.Mission);
   }
 
-  create(): void {
-    // The scene instance is reused on restart (N): reset all per-battle state.
+  create(data?: { scenario?: ScenarioKind }): void {
+    // The scene instance is reused on restart (N, B): reset all per-battle state.
+    this.scenario = data?.scenario ?? 'test';
+    this.lastUnitInfo = null;
     this.units = [];
     this.sprites = new Map();
     this.selected = new Set();
@@ -110,6 +133,7 @@ export class MissionScene extends Phaser.Scene {
     const config = TEST_MAP;
     this.tiles = generateMap(config);
     this.walkGrid = buildWalkGrid(this.tiles);
+    this.combatConfig = { ...this.combatConfig, coverGrid: buildCoverGrid(this.tiles) };
 
     const map = this.make.tilemap({
       data: this.tiles.map((row) => [...row]),
@@ -134,7 +158,10 @@ export class MissionScene extends Phaser.Scene {
     this.overlay = this.add.graphics().setDepth(2);
     this.selectionBox = this.add.graphics().setDepth(4);
 
-    this.units = spawnUnits(this.walkGrid, config.tileSize, TEST_SCENARIO, MOVEMENT.formationSpacing);
+    const spawns = this.scenario === 'stress' ? STRESS_SCENARIO : TEST_SCENARIO;
+    this.units = spawnUnits(this.walkGrid, config.tileSize, spawns, MOVEMENT.formationSpacing);
+    // Performance test: both armies attack at once, so all 100 units move and fight.
+    if (this.scenario === 'stress') orderGeneralAttack(this.units);
     const rallyTile = nearestWalkableTile(this.walkGrid, { x: TEST_RALLY_POINT.tileX, y: TEST_RALLY_POINT.tileY });
     this.rallyPoint = rallyTile ? tileCenter(rallyTile, config.tileSize) : { x: 0, y: 0 };
     for (const unit of this.units) {
@@ -172,7 +199,10 @@ export class MissionScene extends Phaser.Scene {
       keyboard.on('keydown-H', () => this.issueHoldOrder());
       keyboard.on('keydown-R', () => this.issueRetreatOrder());
       keyboard.on('keydown-P', () => this.setRallyPointAtPointer());
-      keyboard.on('keydown-N', () => this.scene.restart());
+      keyboard.on('keydown-N', () => this.scene.restart({ scenario: this.scenario }));
+      keyboard.on('keydown-B', () =>
+        this.scene.restart({ scenario: this.scenario === 'stress' ? 'test' : 'stress' }),
+      );
     }
 
     this.input.on(
@@ -336,9 +366,15 @@ export class MissionScene extends Phaser.Scene {
   }
 
   private emitSelection(): void {
+    const counts = new Map<string, number>();
+    for (const unit of this.selectedUnits()) {
+      const name = getUnitType(unit.typeId).name;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
     const event: SelectionChangedEvent = {
       selected: this.selected.size,
       total: this.units.filter((u) => u.faction === 'player').length,
+      composition: [...counts].map(([name, count]) => `${count} ${name}`).join(', '),
     };
     this.game.events.emit(GameEvents.SelectionChanged, event);
   }
@@ -348,6 +384,7 @@ export class MissionScene extends Phaser.Scene {
       player: this.units.filter((u) => u.faction === 'player').length,
       enemy: this.units.filter((u) => u.faction === 'enemy').length,
       outcome: this.outcome,
+      scenario: SCENARIO_NAMES[this.scenario],
     };
     this.game.events.emit(GameEvents.BattleStatus, event);
   }
@@ -358,6 +395,7 @@ export class MissionScene extends Phaser.Scene {
     this.drawOverlay();
     this.drawSelectionBox();
     this.updateHover();
+    this.updateUnitInfo();
   }
 
   private updateUnits(dt: number): void {
@@ -383,6 +421,10 @@ export class MissionScene extends Phaser.Scene {
         this.showHit(event.fromX, event.fromY, event.toX, event.toY, event.ranged);
         continue;
       }
+      if (event.kind === 'miss') {
+        this.showMiss(event.attackerId, event.fromX, event.fromY, event.toX, event.toY);
+        continue;
+      }
       anyDeath = true;
       this.selected.delete(event.unitId);
       const sprite = this.sprites.get(event.unitId);
@@ -403,17 +445,49 @@ export class MissionScene extends Phaser.Scene {
     this.emitBattleStatus();
   }
 
-  /** Bolt tracer for ranged hits, a short flash at the target for melee hits. */
+  /** Flying bolt for ranged hits, a short flash at the target for melee hits. */
   private showHit(fromX: number, fromY: number, toX: number, toY: number, ranged: boolean): void {
-    const g = this.add.graphics().setDepth(5);
     if (ranged) {
-      g.lineStyle(1.5, 0xf3e9d2, 0.9);
-      g.lineBetween(fromX, fromY, toX, toY);
-    } else {
-      g.fillStyle(0xffffff, 0.8);
-      g.fillCircle(toX, toY, 3);
+      this.showBolt(fromX, fromY, toX, toY, () => this.showImpact(toX, toY, 0xf3e9d2));
+      return;
     }
-    this.tweens.add({ targets: g, alpha: 0, duration: ranged ? 250 : 180, onComplete: () => g.destroy() });
+    this.showImpact(toX, toY, 0xffffff);
+  }
+
+  /** A missed bolt (target in cover) flies past the target and drops into the undergrowth. */
+  private showMiss(attackerId: number, fromX: number, fromY: number, toX: number, toY: number): void {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const length = Math.hypot(dx, dy) || 1;
+    // Deterministic sideways offset per shooter so misses do not all look the same.
+    const side = (attackerId % 2 === 0 ? 1 : -1) * 10;
+    const endX = toX + (dx / length) * 18 - (dy / length) * side;
+    const endY = toY + (dy / length) * 18 + (dx / length) * side;
+    this.showBolt(fromX, fromY, endX, endY);
+  }
+
+  private showBolt(fromX: number, fromY: number, toX: number, toY: number, onArrive?: () => void): void {
+    const bolt = this.add.graphics({ x: fromX, y: fromY }).setDepth(5);
+    bolt.lineStyle(1.5, 0xf3e9d2, 1);
+    bolt.lineBetween(-4, 0, 4, 0);
+    bolt.setRotation(Math.atan2(toY - fromY, toX - fromX));
+    this.tweens.add({
+      targets: bolt,
+      x: toX,
+      y: toY,
+      duration: (Math.hypot(toX - fromX, toY - fromY) / BOLT_SPEED) * 1000,
+      onComplete: () => {
+        bolt.destroy();
+        onArrive?.();
+      },
+    });
+  }
+
+  private showImpact(x: number, y: number, color: number): void {
+    const g = this.add.graphics().setDepth(5);
+    g.fillStyle(color, 0.8);
+    g.fillCircle(x, y, 3);
+    this.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
   }
 
   /**
@@ -445,6 +519,17 @@ export class MissionScene extends Phaser.Scene {
         g.fillRect(x, y, width * share, 2);
       }
       if (!selected) continue;
+      // Reload bar of ranged units (fills up until the next shot is ready).
+      const weapon = mainWeapon(unit);
+      if (weapon.kind === 'ranged' && unit.attackCooldown > 0) {
+        const width = unit.radius * 2 + 4;
+        const x = unit.x - width / 2;
+        const y = unit.y + unit.radius + 4;
+        g.fillStyle(0x1b1a17, 0.85);
+        g.fillRect(x - 1, y - 1, width + 2, 4);
+        g.fillStyle(0x6fb7e8, 1);
+        g.fillRect(x, y, width * (1 - unit.attackCooldown / weapon.cooldown), 2);
+      }
       const target = unit.targetId !== null ? this.units.find((u) => u.id === unit.targetId) : undefined;
       if (target && (unit.order === 'attack' || unit.order === 'engage' || unit.order === 'hold')) {
         g.lineStyle(1, 0xe0563f, 0.45);
@@ -464,6 +549,46 @@ export class MissionScene extends Phaser.Scene {
       g.lineStyle(2, 0x9be37a, 1);
       g.strokeCircle(unit.x, unit.y, unit.radius + 3);
     }
+  }
+
+  /** Reports the unit under the pointer (or else the single selected unit) with its equipment to the UI. */
+  private updateUnitInfo(): void {
+    let unit: Unit | undefined;
+    if (this.pointerInGame) {
+      const pointer = this.input.activePointer;
+      const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      const tolerance = SELECTION.clickTolerance;
+      unit =
+        unitAtPoint(this.units, world.x, world.y, tolerance, 'player') ??
+        unitAtPoint(this.units, world.x, world.y, tolerance, 'enemy');
+    }
+    if (!unit && this.selected.size === 1) unit = this.units.find((u) => this.selected.has(u.id));
+    const text = unit ? this.describeUnit(unit) : null;
+    if (text === this.lastUnitInfo) return;
+    this.lastUnitInfo = text;
+    const event: UnitInfoEvent = { text };
+    this.game.events.emit(GameEvents.UnitInfo, event);
+  }
+
+  private describeUnit(unit: Unit): string {
+    const type = getUnitType(unit.typeId);
+    const armor = getArmor(unit.equipment.armor);
+    // Damage per hit against an unarmoured, untrained target, i.e. weapon value × training.
+    const unarmored = { ...unit, typeId: 'peasant' as const, equipment: { ...unit.equipment, armor: 'none' as const } };
+    const weaponLine = (w: WeaponDefinition) =>
+      `${w.name}: Schaden ${damageAgainst(unit, w, unarmored).toFixed(1)}, ` +
+      `Reichweite ${w.range} px, ${w.kind === 'ranged' ? 'Nachladen' : 'Takt'} ${w.cooldown} s`;
+    const lines = [
+      `${type.name} (${unit.faction === 'player' ? 'eigene' : 'Gegner'}) · LP ${Math.ceil(unit.hp)}/${unit.maxHp}`,
+      weaponLine(getWeapon(unit.equipment.weapon)),
+    ];
+    if (unit.equipment.sidearm) lines.push(`Nahkampf: ${weaponLine(getWeapon(unit.equipment.sidearm))}`);
+    lines.push(
+      `${armor.name}: −${Math.round(armor.protection * 100)} % Schaden` +
+        (armor.speedFactor < 1 ? `, Tempo ${Math.round(armor.speedFactor * 100)} %` : '') +
+        ` · Training ×${type.attack}, Parade ${Math.round(type.defense * 100)} %`,
+    );
+    return lines.join('\n');
   }
 
   private drawSelectionBox(): void {

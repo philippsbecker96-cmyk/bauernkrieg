@@ -11,3 +11,13 @@ export const COMBAT = {
   /** Seconds between path updates while chasing a moving target. */
   repathInterval: 0.4,
 } as const;
+
+/**
+ * Damage formula constants (see `computeDamage`):
+ * damage = weapon damage × attacker training × (1 − armour protection × (1 − armour piercing))
+ *          × (1 − defence, close combat only) × bonus against the target, at least `minDamage`.
+ */
+export const DAMAGE = {
+  /** Every hit removes at least this many hit points, so no unit is invulnerable. */
+  minDamage: 1,
+} as const;

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TEST_MAP } from '../game/data/maps';
-import { UNIT_TYPES, type UnitTypeDefinition } from '../game/data/units';
+import { getUnitType, UNIT_TYPES, type UnitTypeDefinition } from '../game/data/units';
+import { getWeapon } from '../game/data/weapons';
 import { createRandom } from '../game/map/random';
 import { TILE_DEFINITIONS, TileType } from '../game/map/tiles';
 import { SceneKeys } from './sceneKeys';
@@ -24,36 +25,62 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     this.createTilesetTexture(TEST_MAP.tileSize);
     for (const type of Object.values(UNIT_TYPES)) {
-      this.createUnitTexture(type);
+      this.createUnitTexture(getUnitType(type.id));
     }
     this.scene.start(SceneKeys.Mission);
   }
 
   /**
-   * Placeholder unit: filled circle with a dark outline and a small marker
-   * (light for the player, a dark bar for enemies) to tell factions apart at a glance.
-   * Ranged units additionally show a small light bow across their lower half.
+   * Placeholder unit: filled circle with a small marker (light for the player,
+   * a dark bar for enemies) to tell factions apart at a glance. The outline shows
+   * the armour (dark: none, brown: light, steel: heavy), a glyph the main weapon:
+   * crossbow = bow arc, spear = long shaft, halberd = shaft with blade, sword = short cross.
    */
   private createUnitTexture(type: UnitTypeDefinition): void {
     const r = type.radius;
-    const size = r * 2 + 2;
+    const pad = 4; // room for weapon glyphs reaching past the body
+    const size = r * 2 + 2 + pad * 2;
+    const c = size / 2;
     const g = this.make.graphics({}, false);
-    g.fillStyle(0x1b1a17, 1);
-    g.fillCircle(size / 2, size / 2, r + 1);
+    const outline = { none: 0x1b1a17, light: 0x6e4b25, heavy: 0xd5d9de }[type.equipment.armor];
+    g.fillStyle(outline, 1);
+    g.fillCircle(c, c, type.equipment.armor === 'heavy' ? r + 1.5 : r + 1);
     g.fillStyle(type.color, 1);
-    g.fillCircle(size / 2, size / 2, r - 0.5);
+    g.fillCircle(c, c, r - 0.5);
     if (type.faction === 'player') {
       g.fillStyle(0xf3e9d2, 1);
-      g.fillCircle(size / 2, size / 2 - r * 0.25, r * 0.35);
+      g.fillCircle(c, c - r * 0.25, r * 0.35);
     } else {
       g.fillStyle(0x1b1a17, 1);
-      g.fillRect(size / 2 - r * 0.55, size / 2 - 1, r * 1.1, 2);
+      g.fillRect(c - r * 0.55, c - 1, r * 1.1, 2);
     }
-    if (type.ranged) {
-      g.lineStyle(1.5, 0xf3e9d2, 1);
-      g.beginPath();
-      g.arc(size / 2, size / 2 + r * 0.2, r * 0.6, 0.15 * Math.PI, 0.85 * Math.PI);
-      g.strokePath();
+    const weaponColor = 0xf3e9d2;
+    switch (getWeapon(type.equipment.weapon).weaponClass) {
+      case 'crossbow':
+        g.lineStyle(1.5, weaponColor, 1);
+        g.beginPath();
+        g.arc(c, c + r * 0.2, r * 0.6, 0.15 * Math.PI, 0.85 * Math.PI);
+        g.strokePath();
+        break;
+      case 'spear':
+        g.lineStyle(1.5, 0x1b1a17, 1);
+        g.lineBetween(c - r * 0.6, c + r + 2, c + r + 3, c - r - 3);
+        g.fillStyle(weaponColor, 1);
+        g.fillCircle(c + r + 3, c - r - 3, 1.5);
+        break;
+      case 'polearm':
+        g.lineStyle(1.5, 0x1b1a17, 1);
+        g.lineBetween(c - r * 0.6, c + r + 2, c + r + 2, c - r - 2);
+        g.fillStyle(weaponColor, 1);
+        g.fillTriangle(c + r + 2, c - r - 2, c + r - 2, c - r - 3, c + r + 1, c - r + 2);
+        break;
+      case 'sword':
+        g.lineStyle(1.5, weaponColor, 1);
+        g.lineBetween(c - r * 0.5, c + r * 0.5, c + r * 0.5, c - r * 0.5);
+        g.lineBetween(c - r * 0.45, c - r * 0.05, c - r * 0.05, c + r * 0.45);
+        break;
+      case 'improvised':
+        break;
     }
     g.generateTexture(unitTextureKey(type.id), size, size);
     g.destroy();
