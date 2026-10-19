@@ -125,6 +125,8 @@ Abnahmekriterien:
 
 ## Meilenstein 1 – Einheiten darstellen und befehligen
 
+**Status:** abgeschlossen und geprüft (2026-10-19)
+
 **Ziel:** Eine kleine Gruppe von Einheiten kann auf einer Karte ausgewählt und bewegt werden.
 
 Aufgaben:
