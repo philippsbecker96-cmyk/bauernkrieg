@@ -1,7 +1,7 @@
 # GAME DESIGN DOCUMENT
 ## Bauernkrieg – Aufstand der gemeinen Leute
 
-**Version:** 0.3  
+**Version:** 0.4  
 **Datei:** `docs/GAME_DESIGN.md`  
 **Bezug:** `docs/IMPLEMENTATION_PLAN.md`  
 **Status:** Arbeitsgrundlage für die Entwicklung  
@@ -339,6 +339,10 @@ Wichtige taktische Faktoren:
 - Anstürme und Verwundbarkeit von Fernkämpfern.
 - Speere als Gegenmittel gegen Reiter.
 - Engstellen, Tore und Befestigungen bei Angriffen auf befestigte Orte.
+
+**Gelände (festgelegt am 2026-10-19):**
+- **Wald** verlangsamt die Bewegung (Startwert: 70 % der normalen Geschwindigkeit, konfigurierbar in den Kacheldaten). Gruppen umgehen Wald, wenn der Umweg schneller ist.
+- **Deckung im Wald:** Einheiten im Wald sollen schwerer von Fernkämpfern zu treffen sein. Umsetzung erst mit dem Fernkampf der Armbrustschützen (siehe `docs/IMPLEMENTATION_PLAN.md`, Meilenstein 3); konkreter Wert wird dort balanciert.
 
 Es muss kein komplexes Formationssystem zum Start geben. Zunächst reichen verständliche Befehle und wenige klare Waffeninteraktionen. Mehrere unabhängig befehligte Armeegruppen sind keine Voraussetzung für die erste Version; eine zweite Gruppe oder parallele Angriffswege können später ergänzt werden.
 

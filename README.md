@@ -29,6 +29,11 @@ Danach die angezeigte Adresse öffnen (standardmäßig http://localhost:5173/). 
 
 | Aktion | Eingabe |
 | --- | --- |
+| Einheit auswählen | Linksklick auf eigene Einheit (Klick ins Leere hebt die Auswahl auf) |
+| Mehrere auswählen | Auswahlrahmen mit gedrückter linker Maustaste ziehen |
+| Auswahl erweitern | Umschalttaste + Klick (umschalten) oder + Rahmen (hinzufügen) |
+| Auswahl aufheben | Esc |
+| Bewegen | Rechtsklick auf das Ziel (Klick ins Wasser → nächstes Ufer) |
 | Kamera bewegen | W A S D oder Pfeiltasten |
 | Kamera ziehen | mittlere Maustaste gedrückt halten |
 | Zoomen | Mausrad (zoomt zum Mauszeiger) |
@@ -67,9 +72,11 @@ src/
   main.ts             Einstiegspunkt, Phaser-Konfiguration
   scenes/             Phaser-Szenen (Boot, Mission, UI)
   game/
-    data/             Datengetriebene Definitionen (Karten, Steuerungskonstanten)
+    data/             Datengetriebene Definitionen (Karten, Einheitentypen, Bewegungs- und Steuerungskonstanten, Testszenario)
     map/              Kacheltypen und Kartengenerator (ohne Phaser)
     camera/           Kamera-Mathematik (ohne Phaser)
+    entities/         Einheitenzustand und Erzeugung der Startgruppen (ohne Phaser)
+    systems/          Pathfinding (A*), Gruppenbewegung, Abstoßung, Auswahl (ohne Phaser)
   tests/              Vitest-Tests
 ```
 

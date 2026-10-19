@@ -16,15 +16,17 @@ export interface TileDefinition {
   name: string;
   /** Base fill colour of the placeholder tile graphic (0xRRGGBB). */
   color: number;
-  /** Whether units will be able to walk on this tile (used from milestone 1). */
+  /** Whether units can walk on this tile. */
   walkable: boolean;
+  /** Movement speed multiplier on this tile (1 = normal). Ignored if not walkable. */
+  speedFactor: number;
 }
 
 export const TILE_DEFINITIONS: readonly TileDefinition[] = [
-  { type: TileType.Grass, name: 'Wiese', color: 0x6b8e3d, walkable: true },
-  { type: TileType.Forest, name: 'Wald', color: 0x2f5a2a, walkable: true },
-  { type: TileType.Water, name: 'Wasser', color: 0x3b6e9e, walkable: false },
-  { type: TileType.Road, name: 'Weg', color: 0xa88a5c, walkable: true },
+  { type: TileType.Grass, name: 'Wiese', color: 0x6b8e3d, walkable: true, speedFactor: 1 },
+  { type: TileType.Forest, name: 'Wald', color: 0x2f5a2a, walkable: true, speedFactor: 0.7 },
+  { type: TileType.Water, name: 'Wasser', color: 0x3b6e9e, walkable: false, speedFactor: 0 },
+  { type: TileType.Road, name: 'Weg', color: 0xa88a5c, walkable: true, speedFactor: 1 },
 ];
 
 export function getTileDefinition(type: TileType): TileDefinition {

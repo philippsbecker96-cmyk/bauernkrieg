@@ -1,10 +1,16 @@
 import Phaser from 'phaser';
 import { TEST_MAP } from '../game/data/maps';
+import { UNIT_TYPES, type UnitTypeDefinition } from '../game/data/units';
 import { createRandom } from '../game/map/random';
 import { TILE_DEFINITIONS, TileType } from '../game/map/tiles';
 import { SceneKeys } from './sceneKeys';
 
 export const TILESET_KEY = 'tileset';
+
+/** Texture key of the placeholder graphic for a unit type. */
+export function unitTextureKey(typeId: string): string {
+  return `unit-${typeId}`;
+}
 
 /**
  * Creates placeholder graphics at runtime (no external assets needed yet)
@@ -17,7 +23,33 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     this.createTilesetTexture(TEST_MAP.tileSize);
+    for (const type of Object.values(UNIT_TYPES)) {
+      this.createUnitTexture(type);
+    }
     this.scene.start(SceneKeys.Mission);
+  }
+
+  /**
+   * Placeholder unit: filled circle with a dark outline and a small marker
+   * (light for the player, a dark bar for enemies) to tell factions apart at a glance.
+   */
+  private createUnitTexture(type: UnitTypeDefinition): void {
+    const r = type.radius;
+    const size = r * 2 + 2;
+    const g = this.make.graphics({}, false);
+    g.fillStyle(0x1b1a17, 1);
+    g.fillCircle(size / 2, size / 2, r + 1);
+    g.fillStyle(type.color, 1);
+    g.fillCircle(size / 2, size / 2, r - 0.5);
+    if (type.faction === 'player') {
+      g.fillStyle(0xf3e9d2, 1);
+      g.fillCircle(size / 2, size / 2 - r * 0.25, r * 0.35);
+    } else {
+      g.fillStyle(0x1b1a17, 1);
+      g.fillRect(size / 2 - r * 0.55, size / 2 - 1, r * 1.1, 2);
+    }
+    g.generateTexture(unitTextureKey(type.id), size, size);
+    g.destroy();
   }
 
   /** Draws one tile per `TileType` side by side into a canvas texture. */

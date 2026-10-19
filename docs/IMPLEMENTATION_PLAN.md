@@ -1,7 +1,7 @@
 # IMPLEMENTATION PLAN
 ## Bauernkrieg – Aufstand der gemeinen Leute
 
-**Version:** 0.2  
+**Version:** 0.3  
 **Datei:** `docs/IMPLEMENTATION_PLAN.md`  
 **Bezug:** `docs/GAME_DESIGN.md`  
 **Ziel:** Das Spiel schrittweise zu einer vollständigen, spielbaren 2D-RTS-Kampagne mit 3–5 Missionen entwickeln.
@@ -137,6 +137,7 @@ Aufgaben:
 - Flow Fields nicht jetzt, nur falls der Performance-Test in Meilenstein 3 es erfordert.
 - Kamera bewegen und zoomen.
 - Sichtbare Auswahlmarkierung und Zielmarkierung.
+- Geländekosten: Wald verlangsamt die Bewegung (Faktor in den Kacheldaten); A* berücksichtigt die Kosten (siehe `docs/GAME_DESIGN.md`, Abschnitt 9).
 - Noch keine Ressourcenwirtschaft.
 
 Abnahmekriterien:
@@ -175,6 +176,7 @@ Aufgaben:
 - Schwertkämpfer mit Nahkampfstärken.
 - Armbrustschütze mit Projektil oder einfacher Fernkampfdarstellung und Nachladezeit.
 - Gepanzerter gegnerischer Fußsoldat.
+- Deckung im Wald: Einheiten im Wald sind schwerer von Fernkämpfern zu treffen (Wert in den Daten, durch Vitest-Tests abgedeckt).
 - Landsknecht als ausgebildeter, kampfstarker Söldner (Kosten und Ökonomie folgen in Meilenstein 5).
 - Werte und Ausrüstung von Einheitentypen trennen.
 - Vorläufige Platzhaltergrafiken dürfen verwendet werden.

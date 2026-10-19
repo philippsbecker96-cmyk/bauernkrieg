@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { TEST_MAP } from '../game/data/maps';
-import { GameEvents, SceneKeys, type TileHoverEvent } from './sceneKeys';
+import { GameEvents, SceneKeys, type SelectionChangedEvent, type TileHoverEvent } from './sceneKeys';
 
 /**
  * Screen-space overlay with its own camera, so it is unaffected by
@@ -8,6 +8,7 @@ import { GameEvents, SceneKeys, type TileHoverEvent } from './sceneKeys';
  */
 export class UiScene extends Phaser.Scene {
   private hoverText?: Phaser.GameObjects.Text;
+  private selectionText?: Phaser.GameObjects.Text;
 
   constructor() {
     super(SceneKeys.Ui);
@@ -23,15 +24,30 @@ export class UiScene extends Phaser.Scene {
     };
 
     this.add.text(12, 12, `Bauernkrieg – ${TEST_MAP.name}`, { ...style, fontSize: '20px' });
-    this.add.text(12, 52, 'Kamera: WASD / Pfeiltasten · Zoom: Mausrad · Ziehen: mittlere Maustaste', style);
-    this.hoverText = this.add.text(12, 88, 'Kachel: –', style);
+    this.add.text(
+      12,
+      52,
+      [
+        'Auswählen: Linksklick / Rahmen ziehen · Umschalt: hinzufügen · Esc: abwählen',
+        'Bewegen: Rechtsklick',
+        'Kamera: WASD / Pfeiltasten · Zoom: Mausrad · Ziehen: mittlere Maustaste',
+      ].join('\n'),
+      style,
+    );
+    this.selectionText = this.add.text(12, 134, 'Ausgewählt: –', style);
+    this.hoverText = this.add.text(12, 170, 'Kachel: –', style);
 
     const onHover = (event: TileHoverEvent) => {
       this.hoverText?.setText(`Kachel ${event.tileX}, ${event.tileY}: ${event.tileName}`);
     };
+    const onSelection = (event: SelectionChangedEvent) => {
+      this.selectionText?.setText(`Ausgewählt: ${event.selected} von ${event.total} Bauern`);
+    };
     this.game.events.on(GameEvents.TileHover, onHover);
+    this.game.events.on(GameEvents.SelectionChanged, onSelection);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off(GameEvents.TileHover, onHover);
+      this.game.events.off(GameEvents.SelectionChanged, onSelection);
     });
   }
 }
