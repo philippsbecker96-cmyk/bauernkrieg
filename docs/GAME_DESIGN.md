@@ -511,8 +511,10 @@ Die verbindliche Reihenfolge und die Details stehen in `docs/IMPLEMENTATION_PLAN
 10. Desertion, Moral, Kampagnenübergang und Speichern.
 10a. Thomas Müntzer als Begleiter.
 11. Erste vollständige Mission.
+11a. Grafik-Stilprobe: Isometrie oder Draufsicht.
 12. Berittene Ritter, Befestigungen, Gegnereskalation.
 13. Kampagne mit 3–5 Missionen.
+13a. Grafische Umsetzung im gewählten Stil.
 14. Politur, seltene Feuerwaffen, Artillerie und weitere optionale Inhalte.
 
 ### Qualitätsziel
@@ -558,6 +560,7 @@ Diese Punkte werden nicht vorab überkompliziert, sondern anhand eines spielbare
 
 ## 16. Offene Designentscheidungen
 
-- Derzeit keine. (Zahlungsverzug der Landsknechte entschieden am 2026-10-19: Mindestanspruch pro Beuteabrechnung, siehe 7.4.)
+- **Darstellung:** Bleibt das Spiel in der Draufsicht, oder wird es isometrisch in 2.5D (ähnlich Stronghold Crusader) dargestellt? Entscheidung nach der Stilprobe (`docs/IMPLEMENTATION_PLAN.md`, Meilenstein 9a).
+- (Zahlungsverzug der Landsknechte entschieden am 2026-10-19: Mindestanspruch pro Beuteabrechnung, siehe 7.4.)
 
 **Grundsatz:** Erst eine einfache, funktionierende Spielschleife; danach schrittweise Tiefe ergänzen.

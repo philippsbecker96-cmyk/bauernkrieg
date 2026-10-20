@@ -100,7 +100,7 @@ Ein Rückstand entsteht aus einem konfigurierbaren **Mindestanspruch pro Landskn
 ### 2.6 Banner des Haufens
 - Die Regenbogenfahne ist das Banner des eigenen Haufens (siehe `docs/GAME_DESIGN.md`, Abschnitt 1).
 - Sie erscheint als Sammelpunkt auf der Karte, im Hauptmenü, auf dem Kampagnenbildschirm und gegebenenfalls im HUD.
-- Zunächst rein gestalterisch, ohne eigene Spielmechanik. Die einzelnen Stellen werden in den Meilensteinen 8, 9 und 12 umgesetzt; die Sammelpunkt-Fahne kann als kleine Grafikänderung auch früher eingebaut werden.
+- Zunächst rein gestalterisch, ohne eigene Spielmechanik. Die einzelnen Stellen werden in den Meilensteinen 8, 9, 11a und 12 umgesetzt; die Sammelpunkt-Fahne kann als kleine Grafikänderung auch früher eingebaut werden.
 
 ---
 
@@ -453,6 +453,27 @@ Abnahmekriterien:
 - Ein Spieler kann durch unterschiedliche Entscheidungen zu unterschiedlichen Armee- und Ressourcenständen kommen.
 - Es gibt keine blockierenden Bugs im normalen Missionsablauf.
 
+## Meilenstein 9a – Grafik-Stilprobe: Isometrie oder Draufsicht
+
+**Ziel:** Bevor in Meilenstein 10 Befestigungen, Tore und Engstellen entstehen, wird entschieden, ob das Spiel in der Draufsicht bleibt oder auf eine isometrische 2.5D-Darstellung (ähnlich Stronghold Crusader) umgestellt wird. Die eigentliche grafische Umsetzung folgt in Meilenstein 11a.
+
+Aufgaben:
+- Eine eigene Testszene, getrennt von der Mini-Mission und der ersten Mission; das Hauptspiel bleibt unverändert.
+- Ein kleiner Kartenausschnitt in Isometrie: Rautenkacheln für Wiese, Wald und Weg, ein Dorfhaus und ein Stück Mauer mit Tor, jeweils mit sichtbarer Höhe.
+- Die Spielregeln (Bewegung, Kampf, Pfadsuche) rechnen weiter auf dem geraden Kachelraster. Nur die Darstellung wird in Bildschirmkoordinaten umgerechnet; Mausklicks, Auswahlrechteck und Hover-Marker werden zurückgerechnet.
+- Zeichenreihenfolge nach Bildschirmtiefe: Einheiten hinter Gebäuden werden verdeckt, bleiben aber als Umriss oder halbtransparent sichtbar und anklickbar.
+- Platzhalterfiguren in 8 Richtungen, gerendert aus einem einfachen 3D-Testmodell (z. B. Blender), um die Render-Pipeline zu erproben.
+- Leistungstest mit 100 Einheiten in der isometrischen Darstellung.
+- Aufwandsschätzung für die vollständige Umsetzung in Meilenstein 11a (Anzahl Einheitentypen, Richtungen, Animationen, Gebäude).
+
+Abnahmekriterien:
+- Die Stilprobe ist über die öffentliche URL erreichbar (z. B. über einen eigenen Menüpunkt oder URL-Parameter), ohne das Hauptspiel zu verändern.
+- Klicks und Auswahlrechteck treffen in der Isometrie die richtigen Kacheln und Einheiten.
+- Einheiten werden von Gebäuden korrekt verdeckt und bleiben auswählbar.
+- 100 Einheiten laufen flüssig.
+- Die Umrechnung zwischen Raster- und Bildschirmkoordinaten ist durch Vitest-Tests abgedeckt.
+- Die Entscheidung (Isometrie oder Draufsicht) ist mit Datum in diesem Plan (Abschnitt 8) und in `docs/GAME_DESIGN.md` (Abschnitt 16) festgehalten.
+
 ## Meilenstein 10 – Gegnereskalation, Reiter und Befestigungen
 
 **Ziel:** Die späteren Missionen stellen neue taktische Herausforderungen.
@@ -491,10 +512,31 @@ Abnahmekriterien:
 - Frühere Entscheidungen wirken sich auf spätere Missionen aus.
 - Jede Mission hat ein klares Ziel und unterscheidet sich spielerisch von den anderen.
 
+## Meilenstein 11a – Grafische Umsetzung
+
+**Ziel:** Das Spiel erhält seinen endgültigen Grafikstil gemäß der Entscheidung aus Meilenstein 9a. Setzt die spielbare Kampagne (Meilenstein 11) voraus und liegt vor der Politur (Meilenstein 12), damit deren neue Inhalte gleich im endgültigen Stil entstehen.
+
+Aufgaben:
+- Die Darstellung aller Missionen auf den gewählten Stil umstellen; bei Isometrie Umrechnung, Eingabe und Zeichenreihenfolge aus der Stilprobe übernehmen. Die Spielregeln bleiben unverändert.
+- Kacheln für alle Geländetypen mit Varianten und Übergängen.
+- Gebäude: Dörfer, Klöster, Burgen und Adelssitze sowie die Befestigungen, Tore und Engstellen aus Meilenstein 10.
+- Einheitengrafiken für alle bestehenden Einheitentypen und Gegner mit den Animationen Gehen, Angriff und Sterben; Waffen und Rüstung sind an der Figur erkennbar. Bei Isometrie 8 Richtungen (5 gerendert, 3 gespiegelt).
+- Eine wiederholbare Render-Pipeline (z. B. Blender-Skript → Spritesheet oder Texturatlas), dokumentiert, damit neue Einheiten und Ausrüstung ohne Handarbeit ergänzt werden können.
+- Ausgearbeitete Regenbogenfahne für Sammelpunkt, Hauptmenü und Kampagnenbildschirm (Abschnitt 2.6).
+- Lesbarkeit: Auswahlmarkierung, Freund-Feind-Unterscheidung und verdeckte Einheiten bleiben klar erkennbar.
+- Nur eigene Grafiken oder solche mit geprüfter Lizenz (siehe `docs/GAME_DESIGN.md`, Abschnitt 14).
+
+Abnahmekriterien:
+- Alle Missionen der Kampagne sind im neuen Stil spielbar; im normalen Ablauf erscheinen keine Platzhaltergrafiken mehr.
+- Einheitentypen und Waffen sind auf der normalen Zoomstufe unterscheidbar.
+- 100 Einheiten laufen weiterhin flüssig.
+- Bestehende Tests laufen unverändert; Spielstände bleiben ladbar, weil die Darstellung das Speicherformat nicht verändert.
+- Eine neue Einheit lässt sich anhand der Dokumentation über die Render-Pipeline ergänzen.
+
 ## Meilenstein 12 – Politur und optionale Inhalte
 
 Erst nach einer funktionierenden Kampagne:
-- bessere Grafiken und Animationen (einschließlich einer ausgearbeiteten Regenbogenfahne, gegebenenfalls im HUD),
+- weitere Animationen und grafischer Feinschliff über Meilenstein 11a hinaus (z. B. die Regenbogenfahne im HUD),
 - Soundeffekte und Musik,
 - zusätzliche Waffenvarianten wie Dreschflegel, Kriegssense, Bauernwehr oder Dolch,
 - seltene Handbüchsen/Arkebusen,
@@ -605,6 +647,10 @@ Bei jeder Implementierungsaufgabe soll der Coding-Agent:
 **Risiko:** Pathfinding, Kampfberechnung und UI werden unübersichtlich oder ruckeln.  
 **Gegenmaßnahme:** Mit kleinen Gruppen starten, Gruppen-Pathfinding nutzen und in Meilenstein 3 einen Performance-Test mit 100 Einheiten durchführen.
 
+### Grafikaufwand der Isometrie wird unterschätzt
+**Risiko:** 8 Richtungen, mehrere Animationen und viele Einheitentypen ergeben Hunderte Einzelbilder und binden die Entwicklung über Wochen.  
+**Gegenmaßnahme:** Stilprobe mit Aufwandsschätzung in Meilenstein 9a; Figuren aus 3D-Modellen automatisch rendern statt von Hand zeichnen; Spielregeln strikt von der Darstellung getrennt halten.
+
 ### Spielstände gehen nach Updates kaputt
 **Risiko:** Änderungen am Datenmodell machen gespeicherte Kampagnen unlesbar.  
 **Gegenmaßnahme:** Spielstände mit Versionsnummer speichern; bei inkompatibler Version klar informieren statt abzustürzen.
@@ -626,6 +672,7 @@ Ein Meilenstein gilt nur dann als abgeschlossen, wenn:
 
 ## 8. Offene Entscheidungen
 
-- Derzeit keine. (Zahlungsverzug der Landsknechte entschieden am 2026-10-19, siehe Abschnitt 2.4.)
+- **Darstellung: Isometrie (2.5D) oder Draufsicht?** Wird anhand der Stilprobe in Meilenstein 9a entschieden.
+- (Zahlungsverzug der Landsknechte entschieden am 2026-10-19, siehe Abschnitt 2.4.)
 
 **Leitregel:** Ein kleiner, getesteter und spielbarer Fortschritt ist wertvoller als viele nur teilweise implementierte Mechaniken.
